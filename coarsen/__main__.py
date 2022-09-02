@@ -153,7 +153,7 @@ def main():
                 report.gen_png(1, bond_small=params['bond_small'], 
                     bond_large=params['bond_large'], bond_ymax=params['bond_ymax'],
                     ang_ymax=params['ang_ymax'], dih_ymax=params['dih_ymax'])
-                report.create_latex(1, fig_per_row=3)
+                report.create_latex('CG1/', fig_per_row=3)
                 os.chdir('CG1/comparing_pngs')
                 print('Writing result PDF')
                 subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
@@ -228,7 +228,7 @@ def main():
                 report.gen_png(i, bond_small=params['bond_small'], 
                     bond_large=params['bond_large'], bond_ymax=params['bond_ymax'],
                 ang_ymax=params['ang_ymax'], dih_ymax=params['dih_ymax'])
-                report.create_latex(i, fig_per_row=3)
+                report.create_latex('CG'+str(i)+'/', fig_per_row=3)
                 os.chdir('CG'+str(i)+'/comparing_pngs')
                 print('Writing result PDF')
                 subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
@@ -237,11 +237,29 @@ def main():
             report.add_cost(params['wa'],params['wb'],'.','CG'+str(i),i)
 
     if remainder[0]=='gen_cg_dist':
+        print('Calculating bonded distributions')
         subprocess.run('bash ' + os.path.dirname(__file__) + '/run_cg_sim.sh ' +
             'gen_cg_dist ' + str(options.begin) + ' ' + str(options.end) + ' ' + 
             options.dir, shell=True, check=True) 
        #Example: from the current CG directory.
-       # coarsen gen_cg_dist -b [t0] -e [tn] -d [AA dir] 
+       # coarsen gen_cg_dist -b [t0] -e [tn] -d [AA dir]
+ 
+    if remainder[0]=='gen_report':
+        strng=np.array(options.key.split())
+        N=len(strng)
+        strng=strng.reshape(int(N/2),2)
+
+        report.gen_png2(strng[:,0],strng[:,1], bond_small=params['bond_small'], 
+            bond_large=params['bond_large'], bond_ymax=params['bond_ymax'],
+            ang_ymax=params['ang_ymax'], dih_ymax=params['dih_ymax'])
+        report.create_latex('',fig_per_row=3,aa_dir=strng[0,0])
+        os.chdir('comparing_pngs')
+        print('Writing result PDF')
+        subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
+        check=True)
+        os.chdir('../')
+        #Example: from current CG directory.
+        # coarsen gen_report -x parameters.dat 
 
     if remainder[0]=='add_cost':
         try:
@@ -270,6 +288,34 @@ def main():
                 report.gen_mol_prop('cg_struct.pickle')
             else:
                 report.gen_mol_prop(options.file)
+        if remainder[1]=='polystat':
+            try:
+                props=nx.read_gpickle('prop.pickle')
+            except:
+                props={}
+            Rg=aatop_2_cg.get_dist(cg_dir+'/polystat.xvg')
+            props['Re']=[round(np.average(Rg[:,1]),4),
+                         round(np.std(Rg[:,1]),4)]
+            props['Rg']=[round(np.average(Rg[:,2]),4),
+                         round(np.std(Rg[:,2]),4)]
+            props['Rg_eig']=[[round(np.average(Rg[:,3]),4),
+                              round(np.average(Rg[:,4]),4),
+                              round(np.average(Rg[:,5]),4)],
+                             [round(np.std(Rg[:,3]),4),
+                              round(np.std(Rg[:,4]),4),
+                              round(np.std(Rg[:,5]),4)]]
+            props['shape']={}
+            foo=sorted(props['Rg_eig'][0])
+            props['shape']['asphericity']=round((1.5*foo[-1]**2 - 0.5*props['Rg_avg']**2),4)
+            props['shape']['acylindricity']=round((foo[1]-foo[0])*(foo[1]+foo[0]),4)
+            props['shape']['shape_anisotropy']=round((props['shape']['asphericity']**2 + \
+                0.75*props['shape']['acylindricity']**2)/(props['Rg_avg']**4),4)
+
+            
+
+
+
+            
     if remainder[0]=='cg_fac':
         smile.smile2cgfac(remainder[1])
 

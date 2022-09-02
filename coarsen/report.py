@@ -32,6 +32,79 @@ def gen_mol_prop(cgstruc_pickle):
     Ntsp=Ntsp/Ntsp[0]
     print('Pri/Sec/Ter      : '+str(round(Ntsp[2],2))+'/'+str(round(Ntsp[1],2))+'/1')
         
+def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None, 
+    ang_ymax=None, dih_ymax=None):
+    import matplotlib
+    cmap=matplotlib.cm.get_cmap('hsv')
+
+    os.system('mkdir -p comparing_pngs')
+    unparam=nx.read_gpickle(dirs[0]+'unparam.pickle')
+    param=nx.read_gpickle(dirs[0]+'param.pickle')
+    cols=['k']
+
+    for i in range(1,len(dirs)):
+        cols.append(cmap((i-1)/(len(dirs)-1+1E-10)))
+
+    for typ in ["bonds", "angs"]:
+        typ1=typ[:-1]
+        if typ1=="ang":
+            typ1="angle"
+
+        for name in list(unparam[typ].keys())+param[typ]:
+            fig,ax=plt.subplots(1,1,figsize=(3,3))
+
+            for i in range(len(dirs)):
+                data=aatop_2_cg.get_dist(dirs[i]+'bonded_distribution/' + typ1 + 
+                    '_' + name + '.xvg')
+                ax.plot(data[:,0], data[:,1], color=cols[i], label=labels[i])
+            if typ=='bonds':
+                ax.set_xlabel('Bond length '+name+' (nm)')
+                ax.set_ylim(bottom=0)
+                if bond_ymax is not None:
+                    ax.set_ylim(top=bond_ymax)
+                if bond_small is not None and bond_large is not None:
+                    ax.set_xlim(bond_small,bond_large)
+            else: 
+                ax.set_xlabel('Bond angle '+name+' (deg)')
+                ax.set_xlim(0,180)
+                ax.set_xticks(np.arange(0,181,30))
+                ax.set_ylim(bottom=0)
+                if ang_ymax is not None:
+                    ax.set_ylim(top=ang_ymax)
+            if name in unparam[typ]:
+                ax.xaxis.label.set_color('red')
+            ax.set_ylabel('Probability')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            plt.tight_layout()
+            plt.legend(loc='upper right', fontsize='small')
+            plt.savefig('comparing_pngs/' + typ1 + '_' + name + '.png', dpi=300)
+            print('Writing: ' + typ1 + '_' + name + '.png') 
+            plt.clf()
+            plt.close()
+
+    for name in list(unparam['dihs'].keys()) + param['dihs']:
+        fig,ax=plt.subplots(1, 1, figsize=(3,3))
+        for i in range(len(dirs)):
+            data=aatop_2_cg.get_dist(dirs[i]+'bonded_distribution/dih_' + name + '.xvg')
+            ax.plot(data[:,0], data[:,1], color=cols[i], label=labels[i])
+        ax.set_xlim(-180,180)
+        ax.set_xticks(np.arange(-180,181,60))
+        ax.set_ylim(bottom=0)
+        if dih_ymax is not None:
+            ax.set_ylim(top=dih_ymax)
+        ax.set_xlabel('Dihedral angle '+name+' (deg)')
+        ax.set_ylabel('Probability')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        if name in unparam['dihs']:
+            ax.xaxis.label.set_color('red')
+        plt.tight_layout()
+        plt.legend(loc='upper right', fontsize='small')
+        plt.savefig('comparing_pngs/dih_' + name + '.png',dpi=300)
+        print('Writing: dih_' + name + '.png') 
+        plt.clf()
+        plt.close()
 
 def gen_png(cg_idx, bond_small=None, bond_large=None, bond_ymax=None, 
     ang_ymax=None, dih_ymax=None):
@@ -118,11 +191,11 @@ def gen_png(cg_idx, bond_small=None, bond_large=None, bond_ymax=None,
         plt.clf()
         plt.close()
 
-def create_latex(cg_idx,fig_per_row=3):
-    unparam=nx.read_gpickle('unparam.pickle')
-    param=nx.read_gpickle('param.pickle')
+def create_latex(cg_dir,aa_dir='',fig_per_row=3):
+    unparam=nx.read_gpickle(aa_dir+'unparam.pickle')
+    param=nx.read_gpickle(aa_dir+'param.pickle')
 
-    w=open('CG' + str(cg_idx) + '/comparing_pngs/all_images.tex', 'w')
+    w=open(cg_dir + 'comparing_pngs/all_images.tex', 'w')
     
     w.write('\\documentclass{article}\n\n\\usepackage{graphicx}\n' + \
         '\\usepackage[left=2cm, top=2cm, bottom=2cm, right=2cm]{geometry}\n' + \
@@ -252,13 +325,25 @@ def add_cost(wb,wa,aa_dir,cg_dir,idx):
     #Cost Rg
     Rg_aa=aatop_2_cg.get_dist(aa_dir+'/polystat.xvg')
     Rg_cg=aatop_2_cg.get_dist(cg_dir+'/polystat.xvg')
-    aa_avg=np.average(Rg_aa[:,1])
-    aa_avg2=np.average(np.square(Rg_aa[:,1]))
+    aa_avg=np.average(Rg_aa[:,2])
+    aa_avg2=np.average(np.square(Rg_aa[:,2]))
     aa_std=np.sqrt(aa_avg2-aa_avg**2)
-    cg_avg=np.average(Rg_cg[:,1])
-    cg_avg2=np.average(np.square(Rg_cg[:,1]))
+
+    cg_avg=np.average(Rg_cg[:,2])
+    cg_avg2=np.average(np.square(Rg_cg[:,2]))
     cg_std=np.sqrt(cg_avg2-cg_avg**2)
     Stats[idx]['Rg']=(aa_avg-cg_avg)**2+(aa_std-cg_std)**2
 
+    #Cost Re
+    Re_aa=aatop_2_cg.get_dist(aa_dir+'/polystat.xvg')
+    Re_cg=aatop_2_cg.get_dist(cg_dir+'/polystat.xvg')
+    aa_avg=np.average(Re_aa[:,1])
+    aa_avg2=np.average(np.square(Re_aa[:,1]))
+    aa_std=np.sqrt(aa_avg2-aa_avg**2)
+
+    cg_avg=np.average(Re_cg[:,1])
+    cg_avg2=np.average(np.square(Re_cg[:,1]))
+    cg_std=np.sqrt(cg_avg2-cg_avg**2)
+    Stats[idx]['Re']=(aa_avg-cg_avg)**2+(aa_std-cg_std)**2
     nx.write_gpickle(Stats,'Cost.pickle')
     

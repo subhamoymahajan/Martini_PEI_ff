@@ -56,6 +56,12 @@ Writes:
 coarsen gen_cg_dist -b T1 -e T2 -d directory
 ```
 
+Writes:
+- Bonded probability distributions `bonded_distribution/*.xvg`
+- GROMACS .xtc file containing only pei trajectories.
+- Radius of gyration and end-to-end distance of the CG-polymer (`polystat.xvg`) and AA-polymer (`../polystat.xvg`) 
+
+
 ### 4. Calculate cost 
 
 ```bash
@@ -67,13 +73,24 @@ coarsen add_cost -x parameters.dat -k string -f directory
 ```bash
 coarsen smile2cg SMILE_STRING 
 ``` 
+String should contain `t`, `sq`, `s`, `pq`, `p` representing tertiary, protonated-secondary, secondary. protonated-primary, and primary beads respectively. 
+
+Branches can be specified between `(` and `)` blocks.
+
+Additionally repeating blocks can be specified between `{` and `}`.
 
 ### 6. Calculate PEI properties
 
 ```bash
 coarsen get_prop pei 
 ```
+Reports molecular properties of PEI. Also updates the properties in `prop.pickle`.
 
+```bash
+coarsen get_prop polystat
+```
+Reports average and standard deviation of end-to-end distance and radius of gyration.
+Also updates the properties in `prop.pickle`.
 
 ## GROMACS type options
 
@@ -108,14 +125,55 @@ coarsen get_prop pei
 - `em_mdp`: GROMACS .mdp file for energy minimization 
 - `npt_mdp`: GROMACS .mdp file for constrainted NPT simulation.
 - `md_mdp`: GROMACS .mdp file for unconstrainted NPT simulation.
-- `wa` : 
-- `wb` :
-- `thc` :
-- `kc` : 
-- `fa` :
-- `fd` :
+- `fb` : Gradient descent step for bond length parameter optimization. Not used.
+- `wb` : Weight assigning relative importance to mean or standard deviation of bond length distributions. 1.0 implies standard deviation is not important, and 0.5 implies both mean and standard deviation are equally important. Typically, 0.75 is prefered.
+- `wa` : Weight assigning relative importance to mean or standard deviation of bond angle distributions.
+- `fa` : Gradient descent step for bond angle parameter optimization.
+- `thc` : Change in equilibrium theta parameter for calculating Jacobian
+- `kc` : Change in angle force constant parameter for calculating Jacobian
+- `fd` : Gradient descent step for dihedral angle parameter optimisation. 
 - `pos_prec` : Default is 3, based on GROMACS .gro files. 
 - `start_iter` : Starting iteration number. Should be greater than 0.
 - `max_iter` : Last iteration number. Should be greater than 1.
 - `peiname` : Name of PEI.
-                
+
+## Pickle formats
+
+### cgff.pickle
+- `info`: String containing the storage format.
+- bonded distribution name: For bond lengths (b0,Kb), for bond angles (a0,Ka), Dihedrals [number of functions, list of [phi, Kd, n]] 
+              
+### Cost.pickle
+- Keys are iteration numbers (natural numbers) or custom strings (Ex. 'Best').
+- Cost[key] has several keys: 
+    - `all`, `param`, `unparam`: Cost associated with all, parameterized or unparameterized bonded distribution.
+    - `all_bond`, `all_ang`, `all_dih`: Cost associated with either bond length, bond angle or dihedral angle distriutions.
+    - `param_bond`, `param_ang`, `param_dih`, `unparam_bond`, `unparam_ang`, `unparam_dih`: Similar as above.
+    - bonded distributions: Cost associated with a specific bonded distribution name.
+    - `Rg` or `Re`: Cost associated with radius of gyration or end-to-end distance.
+
+### param.pickle
+- `bonds`: list of parameterized bond lenght names
+- `angs`: list of parameterized bond angle names
+- `dihs`: list of parameterized dihedral angle names
+
+### unparam.pickle
+- `bonds`: A dictionary of bond length names : associated gradient descent step modifier.
+- `angs`: A dictionary of bond angle names : associated gradient descent step modifier.
+- `dihs`: A dictionary of dihedral angle names: [ number of functions, associated gradient descent step modifier]
+
+### aa\_struct.pickle
+- A networkx Graph(). 
+- Nodes are atom indeces. Node attributes include `atom_name`, `atom_type`, `res_name`, `charge`, and `mass`.
+- Edges are covalent bonds.
+
+### cg\_struct.pickle
+- A networkx DiGraph(). 
+- Nodes are atom indeces. Node attributes include `bead_name`, `charge`, and `mass`.
+- Edges are covalent bonds. The bonds start from N terminal of one bead to C terminal of another.
+ 
+### prop.pickle
+- `Re`: end-to-end distance avg, std 
+- `Rg`: radius of gyration avg, std 
+- `Rg_eig`: index 0 is list of average eigen values, index 1 is list of std of eigen values.
+- `shape`: `asphericity`,`acylindricity`, relative shape anisotropy `shape_anisotropy`. 

@@ -341,6 +341,11 @@ def AA2CG(Structure,ndx='aa2cg.ndx'):
             'bead_name': 't', 'tq', 's', 'sq', 'p', or 'pq'
             'mass': total mass of the bead.
             'charge': charge of the bead, 0 or 1.
+
+    Writes
+    ------
+    ndx: aa2cg.ndx
+        CG mapping scheme.
     """
     CGStruc=nx.DiGraph() #Since CG beads are assymetric, a DiGraph is used.
     mapping={} #map C1 atom IDs in C1-C2-N1 to CG atom IDs.
@@ -383,6 +388,18 @@ def AA2CG(Structure,ndx='aa2cg.ndx'):
     return nx.relabel_nodes(CGStruc,mapping) #relabel the C1 IDs to CG bead IDs 1 to n.
 
 def write_e2e(CGStruc):
+    """ Write index file for calculating end-to-end distance of the polymer
+
+    Parameters
+    ----------
+    CGStruc: networkx Graph
+        CG chemical structure in network form.
+    
+    Writes
+    ------
+    e2e.ndx: A GROMACS .ndx file
+ 
+    """
     large_len=0
     end_node=0
     for ni in CGStruc.nodes():
@@ -576,10 +593,13 @@ def gen_unparam(CGStruc,cgff_cur_pickle,dih_initial=None):
 
     Writes
     ------
-    "unparam.pickle": Pickled dictionary containing names of unparameterized
-                      bonded parameters.
-    "param.pickle": Pickled dictionary containing names of parameterized
-                    bonded parameters.
+    "unparam.pickle" : Pickled dictionary containing names of unparameterized
+                       bonded parameters.
+    "param.pickle" : Pickled dictionary containing names of parameterized
+                     bonded parameters.
+    "cg_bonds.ndx" : GROMACS .ndx file containing grouped CG bonds.
+    "cg_angs.ndx" : GROMACS .ndx file containing grouped CG angles.
+    "cg_dihs.ndx" : GROMACS .ndx file containing grouped CG dihedrals.
     """
     if type(cgff_cur_pickle)==str:
         cgff_cur=nx.read_gpickle(cgff_cur_pickle)
@@ -688,10 +708,6 @@ def gen_new_cgff(CGStruc,cgff_cur_pickle,cgff_out):
     Writes
     ------
     [cgff_out]: a pickled dictionary containing bonded parameters.
-    "unparam.pickle": Pickled dictionary containing names of unparameterized
-                      bonded parameters.
-    "param.pickle": Pickled dictionary containing names of parameterized
-                    bonded parameters.
     """
     #Write code to gen new ff.
     if type(cgff_cur_pickle)==str:
@@ -1083,50 +1099,63 @@ def gen_ang_params(cgff_pickle,cgff_pickle_out=None):
     elif type(cgff_pickle_out)==str:
         nx.write_gpickle(cgff,cgff_pickle_out)
 
-#def get_nrmsd(file_aa,file_cg):
-#
-#    data_aa=get_dist(file_aa)
-#    data_cg=get_dist(file_cg)
-#    f_cg=interp1d(data_cg[:,0],data_cg[:,1])
-#    rmsd=0
-#    for j in range(len(data_aa)):
-#        if data_aa[j,0]<data_cg[0,0] or data_aa[j,0]>data_cg[-1,0]:
-#        # outside the range of CG dist
-#            rmsd+=data_aa[j,1]**2
-#        else:#interpolate and calculate rmsd
-#            rmsd+=(data_aa[j,1]-f_cg(data_aa[j,0]))**2
-#
-#    rmsd=np.sqrt(rmsd/len(data_aa))
-#    nrmsd=rmsd/(max(data_aa[:,1])-min(data_aa[:,1]))*100.0
-#    return nrmsd
-
-#def gen_list2(filename,typ):
-#    f=open(filename,'r')
-#    arr=[]
-#    if typ=='dih':
-#        vals=[]
-#    for lines in f:
-#        foo=lines.split()
-#        if len(foo)<1:
-#            continue
-#        arr.append(typ+'_'+foo[0])
-#        if typ=='dih':
-#            vals.append([float(foo[1]),int(foo[2])])
-#    if typ=='dih':
-#        return arr,vals
-#    else:
-#        return arr
-        
 def mean_pdf(data):
+    """ Mean of a probability density function.
+
+    Parameters
+    ----------
+    data: 2D numpy array
+         probability density function
+    
+    Returns
+    -------
+    mean of the probability density function (float)
+    """
     return np.sum(np.multiply(data[:,0],data[:,1]))/np.sum(data[:,1])
 
 def var_pdf(data):
+    """ Variance of a probability density function.
+
+    Parameters
+    ----------
+    data: 2D numpy array
+         probability density function
+    
+    Returns
+    -------
+    Variance of the probability density function (float)
+    """
     return np.sum(np.multiply(np.square(data[:,0]),data[:,1]))/np.sum(data[:,1])-mean_pdf(data)**2
 
 def std_pdf(data):
+    """ Standard deviation of a probability density function.
+
+    Parameters
+    ----------
+    data: 2D numpy array
+         probability density function
+    
+    Returns
+    -------
+    Standard deviation of the probability density function (float)
+    """
     return np.sqrt(var_pdf(data))
 
 def dih_name_to_param(dih_name,cgff):
+    """ Finds the parameters associated with the dihedral name
+
+    Parameters
+    ----------
+    dih_name: str
+        Name of the dihedral angle
+    cgff: list
+        CG forcefield parameters
+
+    Returns
+    -------
+    Dihedral angle parameters K, phi, n
+    """
+
     foo=cgff[dih_name][1]
     Kd=np.zeros(cgff[dih_name][0])
     phi=np.zeros(cgff[dih_name][0])
@@ -1138,6 +1167,20 @@ def dih_name_to_param(dih_name,cgff):
     return Kd,phi,n_dih
 
 def dih_param_to_fourier(Kd,phi):
+    """ Convert dihedral angle parameters to Fourier series form.
+
+    Parameters
+    ----------
+    Kd: array of float
+        Force constants of dihedral angle
+    phi: array of integers
+        Angle phis (0, -90, 90, 180) of dihedral angle
+
+    Returns
+    -------
+    Array of fourier series parameters.
+    """
+
     popt=np.zeros(len(Kd)+1)
     for i in range(len(Kd)):
         if i%2==0:
@@ -1152,65 +1195,39 @@ def dih_param_to_fourier(Kd,phi):
                 popt[i+1]=-Kd[i]
     return popt
 
-#def get_cost(wb,wa,aa_dir,idx,subtyp=''):
-#    unparam=nx.read_gpickle('unparam.pickle')
-#    cost={}
-#    for a in ['all', 'param', 'unparam']:
-#        for b in ['', '_bond', '_ang', '_dih']:
-#            cos[a+b]=0
-#    data={}
-#    mean={}
-#    std={}
-#    U={}
-#    for typ in ["bonds", "angs"]:
-#        if typ=="bonds":
-#            w=wb
-#        else:
-#            w=wa
-#        for name in list(unparam[typ].keys())+param[typ]:
-#            typ2=typ[:-1]
-#            if typ=='angs':
-#                typ2='angle'
-#            data['AA']=get_dist(aa_dir+'/bonded_distribution/'+typ2+'_'+name+'.xvg')
-#            mean['AA']=mean_pdf(data['AA'])
-#            std['AA']=std_pdf(data['AA'])
-#            data['CG']=get_dist(aa_dir+'/CG'+str(idx)+subtyp+'/bonded_distribution/'+typ2+'_'+name+'.xvg')
-#            mean['CG']=mean_pdf(data['CG'])
-#            std['CG']=std_pdf(data['CG'])
-#            cost[name]=w*(mean['CG']-mean['AA'])**2 +(1-w)*(std['CG']-std['AA'])**2
-#            cost['all']+=w*(mean['CG']-mean['AA'])**2 +(1-w)*(std['CG']-std['AA'])**2
-#            cost['all_'+typ[:-1]]+=w*(mean['CG']-mean['AA'])**2 +(1-w)*(std['CG']-std['AA'])**2
-#            
-#            if name in unparam[typ]:
-#                cost['unparam']+=w*(mean['CG']-mean['AA'])**2 +(1-w)*(std['CG']-std['AA'])**2
-#                cost['unparam_'+typ[:-1]]+=w*(mean['CG']-mean['AA'])**2 +(1-w)*(std['CG']-std['AA'])**2
-#            else:
-#                cost['param']+=w1*(mean['CG']-mean['AA'])**2 +w2*(std['CG']-std['AA'])**2
-#                cost['param_'+typ[:-1]]+=1*(mean['CG']-mean['AA'])**2 +w2*(std['CG']-std['AA'])**2
-#    for dih in list(unparam['dihs'].keys())+param['dihs']:
-#        data['AA']=get_dist(aa_dir+'/bonded_distribution/dih_'+dih+'.xvg')
-#        data['AA']=fill_data(data['AA'])
-#        U['AA']=-kbt*np.log(np.array(data['AA'][:,1])+tol) 
-#        p0=[1]*(unparam['dihs'][dih][0]+1)
-#        popt1,pcov1=curve_fit(fourier_series,data['AA'][:,0],U['AA'],p0)
-#
-#        data['CG']=get_dist(aa_dir+'/CG'+str(idx)+subtyp+'/bonded_distribution/dih_'+dih+'.xvg')
-#        data['CG']=fill_data(data['CG'])
-#        U['CG']=-kbt*np.log(np.array(data['CG'][:,1])+tol) 
-#        p0=[1]*(unparam['dihs'][dih][0]+1)
-#        popt2,pcov2=curve_fit(fourier_series,data['AA'][:,0],U['CG'],p0)
-#        cost[dih]=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#        cost['all']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#        cost['all_dih']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#        if name in unparam['dihs']:
-#            cost['unparam']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#            cost['unparam_dih']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#        else:
-#            cost['param']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#            cost['param_dih']+=np.sum(np.square(np.subtract(popt1[1:],popt2[1:])))
-#    return cost
-
 def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
+    """ Update bonded parameters for next iteration
+
+    Since all bond length parameters have been determined, they are not 
+    updated.
+
+    Parameters
+    ----------
+    fa: float
+        Gradient descent step parameter for bond angle distributions.
+    fd: float
+        Gradient descent step parameter for dihedral angle distributions.
+    wb: float
+        Weight [0,1] that assigns relative importance to match mean and 
+        standard deviation of CG bond length distributions to that of 
+        reference CG distribution.
+    wa: float
+        Weight [0,1] that assigns relative importance to match mean and 
+        standard deviation of CG bond angle distributions to that of 
+        reference CG distribution.
+    aa_dir: str
+        Path to the directory containing directors CG*
+    idx: int
+        Index of the new iteration.
+    cost_tol: float
+        Cost tolerance below which parameters are not changed
+        
+    Returns
+    -------
+    change: (int) 
+        0 if some parameters have changed
+       -1 if no parameters have changed.
+    """
     unparam=nx.read_gpickle(aa_dir + '/unparam.pickle')
     err_stat=nx.read_gpickle(aa_dir + '/Cost.pickle')
     ff={}
@@ -1382,6 +1399,28 @@ def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
         return -1
 
 def update_th_params(thc,idx,aa_dir,cost_tol=1E-6):
+    """ Update only theta parameters of bond angle distribution for determining 
+        Jacobian
+
+    Parameters
+    ----------
+    thc: float
+        Theta parameters are increased by thc. If current theta parameter is 
+        >= 179, new theta parameters is 180-thc. New theta parameter is >= 30.
+    idx: int
+        Index of current iteration.
+    aa_dir: str
+        Path to the directory containting CG* directories.
+    cost_tol: float
+        Cost tolerance below which theta parameters are not changed.
+
+    Returns
+    -------
+    changed: int
+        0 if some parameters are changed
+       -1 if no parameters are changed
+   
+    """
     unparam=nx.read_gpickle('unparam.pickle')
     cgff=nx.read_gpickle(aa_dir+'/CG'+str(idx)+'/cgff'+str(idx)+'.pickle')
     err_stat=nx.read_gpickle(aa_dir + '/Cost.pickle')
@@ -1402,6 +1441,28 @@ def update_th_params(thc,idx,aa_dir,cost_tol=1E-6):
         return -1
 
 def update_K_params(kc,idx,aa_dir,cost_tol=1E-6):
+    """ Update only force constant parameters of bond angle distribution for 
+        determining Jacobian
+
+    Parameters
+    ----------
+    kc: float
+        Force constant parameter are increased by kc. New force constant
+        is >= 10 kJ/mol. 
+    idx: int
+        Index of current iteration.
+    aa_dir: str
+        Path to the directory containting CG* directories.
+    cost_tol: float
+        Cost tolerance below which theta parameters are not changed.
+
+    Returns
+    -------
+    changed: int
+        0 if some parameters are changed
+       -1 if no parameters are changed
+   
+    """
     unparam=nx.read_gpickle(aa_dir + '/unparam.pickle')
     cgff=nx.read_gpickle(aa_dir + '/CG' + str(idx) + '/cgff' + str(idx) + '.pickle')
     err_stat=nx.read_gpickle(aa_dir + '/Cost.pickle')

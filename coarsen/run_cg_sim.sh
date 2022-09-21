@@ -175,7 +175,8 @@ run_CG_sim () {
 
 		#Create a new box
 		echo "Creating a new box"
-        	gmx editconf -f cg_ini.gro -o cgPEI_newbox.gro -c -d 2.0 -bt cubic &>> output.log
+                cp cg_ini.gro cgPEI_newbox.gro
+        	#gmx editconf -f cg_ini.gro -o cgPEI_newbox.gro -c -d 2.0 -bt cubic &>> output.log
 		#Change the molecule name in the topology file (as the itp file has different molecule name) and copy 
         
 		#Add pokarizable water to the initial structure
@@ -251,5 +252,46 @@ run_CG_sim () {
 		cd $AADIR #In dir main
 	fi
 }
-        
+
+conv_itp (){
+     fname=$1
+
+     N=`grep -n '\[.*constraints.*\]' martini_v${fname}.itp | sed 's/:.*//g'`
+     N=$((N-1))
+
+     head -n $N martini_v${fname}.itp > martini_v${fname}_constr.itp     
+     echo "[ bonds ]" >> martini_v${fname}_constr.itp
+     echo ";  i     j   funct   length   force const.;" >> martini_v${fname}_constr.itp
+     echo "   1     2    1       0.14    100000" >> martini_v${fname}_constr.itp
+     echo "   1     3    1       0.14    100000" >> martini_v${fname}_constr.itp
+     echo " "  >> martini_v${fname}_constr.itp
+     echo "[ angles ]" >> martini_v${fname}_constr.itp
+     echo ";   i    j   k   funct  angle    fc" >> martini_v${fname}_constr.itp
+     echo "    2    1   3    2     0.0     4.2" >> martini_v${fname}_constr.itp
+     echo " "  >> martini_v${fname}_constr.itp
+     echo "[ exclusions ]" >> martini_v${fname}_constr.itp
+     echo "1   2 3" >> martini_v${fname}_constr.itp
+     echo "2   3" >> martini_v${fname}_constr.itp
+
+}       
+
+gen_edr_prop (){
+        CG_T0=$1   #First argument specifies how many last nanoseconds ti use to calculated pei.xtc
+	CG_TN=$2
+        Prop=$3
+        source init.sh &>>output.log
+
+	echo "$Prop" | gmx energy -f md_1.edr -o $Prop.xvg -b $CG_T0 -e $CG_TN &>>output.log 
+     
+}
+
+gen_msd (){
+        CG_T0=$1   #First argument specifies how many last nanoseconds ti use to calculated pei.xtc
+	CG_TN=$2
+        MOL=$3
+        echo "$CG_T0 $CG_TN $MOL"
+        source init.sh &>>output.log
+        echo "$MOL" | gmx msd -f md_1.trr -s md_1.tpr -o msd_${MOL}.xvg -b $CG_T0 -e $CG_TN -mol -mw &>> output.log 
+
+} 
 "$@"

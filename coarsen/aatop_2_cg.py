@@ -576,7 +576,8 @@ def get_dist(filename):
             continue
         if foo[0][0]=='#' or foo[0][0]=='@':
             continue
-        data.append([float(foo[0]),float(foo[1])])
+        foo=[float(x) for x in foo]
+        data.append(foo)
     f.close()
     data=np.array(data)
     return data

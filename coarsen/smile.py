@@ -261,12 +261,16 @@ def gen_ini_cord(CGStruc,cgff_pickle,pos_prec,smile,outname='cg_ini.gro'):
     names=[CGStruc.nodes[x]['bead_name'] for x in range(1,N+1)]
 
     pos=np.zeros((N,3))
-    pos[1,0]=round(cgff[get_name(CGStruc,[1,2])[0]][0],pos_prec) #x-coord is the bond length param
+    # Head node 1 is in origin.
 
-    if CGStruc.has_edge(2,3):
+    pos[1,0]=round(cgff[get_name(CGStruc,[1,2])[0]][0],pos_prec) #x-coord is the bond length param
+    # Node 2 has to be connected to head node. Node 2 is on x-axis
+    # 1->2 
+
+    if CGStruc.has_edge(2,3): #1->2->3
         name=get_name(CGStruc,[1,2,3])
         b=cgff[get_name(CGStruc,[2,3])[0]][0]
-    elif CGStruc.has_edge(1,3):
+    elif CGStruc.has_edge(1,3):#   3<-1->2
         name=get_name(CGStruc,[2,1,3])
     else:
         raise Exception('First three beads are not connected')
@@ -275,6 +279,8 @@ def gen_ini_cord(CGStruc,cgff_pickle,pos_prec,smile,outname='cg_ini.gro'):
         if x in cgff:
             th=cgff[x][0]
             break
+
+    # Bead 3 is on xy plane. 
     if CGStruc.has_edge(1,3):
         b=cgff[get_name(CGStruc,[1,3])[0]][0]
         pos[2,0]=round(b*np.cos(th*np.pi/180.0),3)
@@ -287,35 +293,37 @@ def gen_ini_cord(CGStruc,cgff_pickle,pos_prec,smile,outname='cg_ini.gro'):
     queue=[1]
     while len(queue)>0:
         bead=queue.pop()
-        succs=list(CGStruc.successors(bead))
+        succs=list(CGStruc.successors(bead)) 
         queue+=succs
         if bead in [1,2,3]:
             continue
-        if np.sum(pos[bead-1,:])>1E-3:
+        if np.sum(pos[bead-1,:])>1E-3: #Beads are assigned positions based on their number
             continue
-        # a->b->c->*
-        #    |  |
-        #    v  v
-        #    d  e->f
-        #       
-        preds1=list(CGStruc.predecessors(bead)) # [c] or None
+        
+        # preds3[0] -> preds2[0] -> preds1[0] -> bead
+        #               \                 \ 
+        #                -> preds2_s[0]    -> preds1_s[0] -> preds1_ss[0]
+        #                                        \
+        #                                         -> preds1_ss[1]
+        #             
+        preds1=list(CGStruc.predecessors(bead))
         preds2=[]
         preds1_s=[]
         preds1_ss=[]
-        if len(preds1)>0:
-            preds2=list(CGStruc.predecessors(preds1[0])) #[b] or None
+        if len(preds1)>0: #Preds1 will always have one bead. 
+            preds2=list(CGStruc.predecessors(preds1[0])) #Exactly one bead
             preds1_s=list(CGStruc.successors(preds1[0])) #[e,Bead] or [Bead]
-            preds1_s.remove(bead) #[e] or None
+            preds1_s.remove(bead) 
             if len(preds1_s)>0:
-                preds1_ss=list(CGStruc.successors(preds1_s[0]))# [f,g] or [f]
+                preds1_ss=list(CGStruc.successors(preds1_s[0]))
         preds3=[]
         preds2_s=[]
-        if len(preds2)>0:
+        if len(preds2)>0: #Preds2 will have exactly one bead
             preds3=list(CGStruc.predecessors(preds2[0])) #[a] or None
             preds2_s=list(CGStruc.successors(preds2[0])) #[c,d] or [c]
             preds2_s.remove(preds1[0]) #[d] or None
 
-        #First Check normal angle
+        #First Check normal dihedral angle: preds3[0]->preds2[0]->preds1[0]->bead
         if len(preds3)>0:
             b12=cgff[get_name(CGStruc,[preds3[0],preds2[0]])[0]][0]
             b23=cgff[get_name(CGStruc,[preds2[0],preds1[0]])[0]][0]
@@ -343,7 +351,9 @@ def gen_ini_cord(CGStruc,cgff_pickle,pos_prec,smile,outname='cg_ini.gro'):
                         break
                 else:
                     break
-        #Try N-type angle 1
+        #Try N-type angle 1: preds2[0]->preds1[0]->bead
+        #                     \
+        #                      -> preds2_s[0]
         elif len(preds2_s)>0:
             b12=cgff[get_name(CGStruc,[preds2_s[0],preds2[0]])[0]][0]
             b23=cgff[get_name(CGStruc,[preds2[0],preds1[0]])[0]][0]
@@ -382,7 +392,9 @@ def gen_ini_cord(CGStruc,cgff_pickle,pos_prec,smile,outname='cg_ini.gro'):
                         break
                 else:
                     break
-        #Try N-type angle 2
+        #Try N-type angle 2:  preds1[0]->bead
+        #                      \
+        #                       ->preds1_s[0]->preds1_ss[0]
         elif len(preds1_ss)>0:
             b12=cgff[get_name(CGStruc,[preds1_ss[0],preds1_s[0]])[0]][0]
             b23=cgff[get_name(CGStruc,[preds1_s[0],preds1[0]])[0]][0]

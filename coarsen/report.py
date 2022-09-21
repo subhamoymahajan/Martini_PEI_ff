@@ -7,7 +7,7 @@ from scipy.optimize import curve_fit
 kbt=aatop_2_cg.kbt
 tol=aatop_2_cg.tol
 
-def gen_mol_prop(cgstruc_pickle):
+def gen_mol_prop(cgstruc_pickle,props):
     if type(cgstruc_pickle)==str:
         cgstruc=nx.read_gpickle(cgstruc_pickle)
     else:
@@ -26,12 +26,18 @@ def gen_mol_prop(cgstruc_pickle):
         Q+=cgstruc.nodes[node]['charge']
     print(Ntsp)
 
+    props['MolWt']=round(M)
+    props['Charge']=Q
+    props['pr']=round(Q/np.sum(Ntsp),3)
+    props['N_tsp']=Ntsp
+
     print('Molecular Weight : '+str(round(M)))
     print('Charge           : '+str(Q))
     print('Protonation ratio: '+str(round(Q*100/np.sum(Ntsp),1)))
     Ntsp=Ntsp/Ntsp[0]
     print('Pri/Sec/Ter      : '+str(round(Ntsp[2],2))+'/'+str(round(Ntsp[1],2))+'/1')
-        
+    nx.write_gpickle(props,'prop.pickle')
+       
 def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None, 
     ang_ymax=None, dih_ymax=None):
     import matplotlib
@@ -346,4 +352,118 @@ def add_cost(wb,wa,aa_dir,cg_dir,idx):
     cg_std=np.sqrt(cg_avg2-cg_avg**2)
     Stats[idx]['Re']=(aa_avg-cg_avg)**2+(aa_std-cg_std)**2
     nx.write_gpickle(Stats,'Cost.pickle')
+
+def calc_polystat(props):
+    Rg=aatop_2_cg.get_dist('polystat.xvg')
+    props['Re']=[round(np.average(Rg[:,1]),4),
+                 round(np.std(Rg[:,1]),4)]
+    print('Re : '+str(props['Re'][0])+' +- '+str(props['Re'][1]))
+
+    props['Rg']=[round(np.average(Rg[:,2]),4),
+                 round(np.std(Rg[:,2]),4)]
+    print('Rg : '+str(props['Rg'][0])+' +- '+str(props['Rg'][1]))
+
+    props['Rg_eig']=[[round(np.average(Rg[:,3]),4),
+                      round(np.average(Rg[:,4]),4),
+                      round(np.average(Rg[:,5]),4)],
+                     [round(np.std(Rg[:,3]),4),
+                      round(np.std(Rg[:,4]),4),
+                      round(np.std(Rg[:,5]),4)]]
+    props['shape']={}
+    foo=sorted(props['Rg_eig'][0])
+    print('Eigen value of Rg: ',foo)
+
+    props['shape']['asphericity']=round((1.5*foo[-1]**2 - 0.5*props['Rg'][0]**2),4)
+    props['shape']['acylindricity']=round((foo[1]-foo[0])*(foo[1]+foo[0]),4)
+    props['shape']['shape_anisotropy']=round((props['shape']['asphericity']**2 + \
+        0.75*props['shape']['acylindricity']**2)/(props['Rg'][0]**4),4)
+    nx.write_gpickle(props,'prop.pickle')
+
+def calc_diff_scaling(data,martini):
+    if martini not in ['2.1P-dna', '2.2refP','2.P','2.1P']:
+        print('Scaling has not been determined.')
+        return
+    if martini=='2.1P-dna' or martini=='2.P':
+        martini='2.1P'
+    props=nx.read_gpickle('prop.pickle')
+    pr=props['pr']
+    conc=props['conc']
+    print('Using martini'+martini)
+    print('PR: ',pr)
+    print('Conc.: ',conc)
+    num=(data['P1_AA']['intercept'] + conc*data['P1_AA']['coef'])*(1-pr) + \
+        (data['Qd_AA']['intercept'] + conc*data['Qd_AA']['coef'])*pr
+    den=(data['P1_'+martini]['intercept'] + conc*data['P1_'+martini]['coef'])*(1-pr) + \
+        (data['Qd_'+martini]['intercept'] + conc*data['Qd_'+martini]['coef'])*pr
+
+    props['scaling']=round(num/den,2)
+    print('Diffusion scaling: '+str(props['scaling']))
+    nx.write_gpickle(props,'prop.pickle')
+
+def calc_Diff(fname,tmax,tmul=0.001,tunit='ns',show=False):
+
+    data=aatop_2_cg.get_dist('msd_'+fname+'.xvg')
+    try:
+        props=nx.read_gpickle('prop.pickle')
+    except:
+        props={}
+    data[:,0]=data[:,0]*tmul
+    dt=data[1,0]-data[0,0]
+    N1=int(tmax/dt+0.5)
+    data=data[:N1,:]
+
+    from scipy import stats
     
+    a,b,r,p,std_err=stats.linregress(data[:,0],data[:,1])
+
+    print("Diffusion coefficient : "+str(round(a/6.,4))+' +- '+
+        str(round(std_err/6.,4))+' 1E-5 cm2/s')
+    props['D']=round(a/6.,4)
+    props['D_err']=round(std_err/6.,4)
+    try:
+        print("Diffusion coefficient : "+str(round(a*props['scaling']/6.,4))+' +- '+
+            str(round(std_err*props['scaling']/6.,4))+' 1E-5 cm2/s')
+        props['D_scaled']=round(a*props['scaling']/6.,4)
+        props['D_scaled_err']=round(std_err*props['scaling']/6.,4)
+    except:
+        pass
+    nx.write_gpickle(props,'prop.pickle')
+    y_pred=data[:,0]*a+b
+
+    import matplotlib
+    matplotlib.use('TkAgg')
+    
+    fig,ax=plt.subplots(1,1,figsize=(4,4))
+    ax.plot(data[:,0],data[:,1],color='k')
+    ax.plot(data[:,0],y_pred,color='r',linestyle='dashed')
+    
+    foo_dx=[0.01,0.02,0.04,0.05,0.1,0.2,0.4,0.5,1,2,4,5,10,20,40,50]
+    nticks_foo=np.array([abs(int(tmax/x+0.5)-5) for x in foo_dx])
+    idx=np.argmin(nticks_foo)
+    dx=foo_dx[idx]
+    xmax=(int(tmax/dx+0.5)+1)*dx
+
+    nticks_foo=np.array([abs(int(max(data[:,1])/x+0.5)-5) for x in foo_dx])
+    idx=np.argmin(nticks_foo)
+    dy=foo_dx[idx]
+    ymax=(int(max(data[:,1])/dy+0.5)+2)*dy
+    
+    
+    ax.set_ylabel(r'MSD (nm$^2$)')
+    ax.set_xlabel('Time ('+tunit+')')
+    ax.set_xticks(np.arange(0,xmax,dx))
+    ax.set_xlim(0,tmax)
+    ax.set_yticks(np.arange(0,ymax,dy))
+    ax.set_ylim(0,ymax-dy)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    lines=ax.get_lines()
+    plt.tight_layout()
+    ax.legend([lines[1]],['fit'], fontsize=10, bbox_to_anchor=(1.0,1.0), framealpha=1.0,
+               edgecolor='k')
+    if show:
+        plt.show()
+    else:
+        plt.savefig('msd_'+fname+'.png',dpi=1200)
+
+         

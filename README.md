@@ -92,6 +92,35 @@ coarsen get_prop polystat
 Reports average and standard deviation of end-to-end distance and radius of gyration.
 Also updates the properties in `prop.pickle`.
 
+```bash
+coarsen get_prop edr [prop] -b T1 -e T2 -x parameters.dat
+```
+Calculates a property from `md_1.edr` file. This command runs the `gmx energy` and stores the average and std of the property in `prop.pickle`. It has currently been tested for calculating volume (`[prop] = Volume`).
+
+```bash
+coarsen get_prop conc -i nmol
+``` 
+Calculates concentration of PEI in the simulation. Note that all PEIs should be identical for this calculation. Property of PEI (`get_prop pei`) and volume of simulation box (`get_prop edr Volume`) must have been previously executed. 
+
+`-i nmol` is the number of PEI molecules.
+
+```bash
+coarsen get_prop diff_scaling
+```
+
+Determines the diffusion scaling factor. Currently works for Martini 2.1P and Martini Ref2.2P. Calculation of concenteration must have been previously calculated. 
+
+
+```bash
+coarsen get_prop diff -b T1 -e T2 -k mol_name -n tfit
+```
+
+Calculates diffusion coefficient of PEI. Calculation of diffusion scaling factor must have been previously calculated.
+
+- `-k mol_name`: Molecule name of PEI.
+- `-n tfit`: The fitting time in nanoseconds.
+
+
 ## GROMACS type options
 
 - `-f` : Input file name, typically for .xtc .trr

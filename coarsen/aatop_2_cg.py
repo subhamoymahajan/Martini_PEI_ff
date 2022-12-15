@@ -653,7 +653,7 @@ def gen_unparam(CGStruc,cgff_cur_pickle,dih_initial=None):
         f=open(dih_initial,'r')
         for lines in f:
             foo=lines.split()
-            unparam['dihs'][foo[0]]=int(foo[2])
+            unparam['dihs'][foo[0]]=[int(foo[2]),1.0]
 
     nx.write_gpickle(unparam,'unparam.pickle')
     nx.write_gpickle(param,'param.pickle')

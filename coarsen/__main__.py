@@ -80,6 +80,7 @@ def main():
     params['pos_prec']=3
     params['start_iter']=1
     params['martini']='2.1P'
+    params['ncols']=[1,1,1]
     params['diff_data']=os.path.dirname(__file__)+'/diff_data.pickle'
     if options.paramfile != None:
         f=open(options.paramfile,'r')
@@ -97,6 +98,11 @@ def main():
                 'bond_large', 'dih_ymax', 'ang_ymax', 'bond_ymax', 'wb',
                 'cost_tol']:
                 params[var]=float(foo[1])
+            elif var in ["dirs", "labels"]:
+                params[var]=foo[1].split()
+            elif var in ["ncols"]:
+                params[var]=[int(x) for x in foo[1].split()]
+
     if "xtc" not in params:
         if "trr" in params:
             params["xtc"]=params["trr"]
@@ -253,6 +259,10 @@ def main():
             report.add_cost(params['wa'],params['wb'],'.','CG'+str(i),i)
 
     if remainder[0]=='gen_cg_dist':
+        if not os.path.exists('e2e.ndx'):
+            cg_struct=nx.read_gpickle(options.dir+'/cg_struct.pickle')
+            aatop_2_cg.write_e2e(cg_struct)
+
         print('Calculating bonded distributions')
         subprocess.run('bash ' + os.path.dirname(__file__) + '/run_cg_sim.sh ' +
             'gen_cg_dist ' + str(options.begin) + ' ' + str(options.end) + ' ' + 
@@ -261,14 +271,11 @@ def main():
        # coarsen gen_cg_dist -b [t0] -e [tn] -d [AA dir]
  
     if remainder[0]=='gen_report':
-        strng=np.array(options.key.split())
-        N=len(strng)
-        strng=strng.reshape(int(N/2),2)
-
-        report.gen_png2(strng[:,0],strng[:,1], bond_small=params['bond_small'], 
+        print(params['ncols'])
+        report.gen_png2(params['dirs'],params['labels'], bond_small=params['bond_small'], 
             bond_large=params['bond_large'], bond_ymax=params['bond_ymax'],
-            ang_ymax=params['ang_ymax'], dih_ymax=params['dih_ymax'])
-        report.create_latex('',fig_per_row=3,aa_dir=strng[0,0])
+            ang_ymax=params['ang_ymax'], dih_ymax=params['dih_ymax'], ncols_val=params['ncols'])
+        report.create_latex('',fig_per_row=3,aa_dir=params['dirs'][0])
         os.chdir('comparing_pngs')
         print('Writing result PDF')
         subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
@@ -363,6 +370,20 @@ def main():
                 report.calc_Diff(options.key,float(options.ndx),show=True)
             else:
                 report.calc_Diff(options.key,float(options.ndx))
+
+        if remainder[1]=='diff_N':
+            subprocess.run('bash ' + os.path.dirname(__file__) + '/run_cg_sim.sh ' +
+                'gen_msd_N ' + str(options.begin) + ' ' + str(options.end) + ' ' + 
+                options.key+' '+str(options.id), shell=True, check=True) 
+            # Example: coarsen get_prop diff_N -b T1 -e T2 -k PEI -s show -n tfit -i partitions`
+ 
+            if options.tpr_file=='show':
+                report.calc_Diff_N(options.key,float(options.ndx),options.begin,
+                    options.end,options.id,show=True)
+            else:
+                report.calc_Diff_N(options.key,float(options.ndx),options.begin,
+                    options.end,options.id)
+        
         
 if __name__=='__main__':
     main()

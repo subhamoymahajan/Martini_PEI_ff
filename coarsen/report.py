@@ -39,17 +39,15 @@ def gen_mol_prop(cgstruc_pickle,props):
     nx.write_gpickle(props,'prop.pickle')
        
 def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None, 
-    ang_ymax=None, dih_ymax=None):
+    ang_ymax=None, dih_ymax=None, ncols_val=[1,1,1]):
     import matplotlib
     cmap=matplotlib.cm.get_cmap('hsv')
-
     os.system('mkdir -p comparing_pngs')
     unparam=nx.read_gpickle(dirs[0]+'unparam.pickle')
     param=nx.read_gpickle(dirs[0]+'param.pickle')
     cols=['k']
-
-    for i in range(1,len(dirs)):
-        cols.append(cmap((i-1)/(len(dirs)-1+1E-10)))
+    for i in range(2,len(dirs)):
+        cols.append(cmap((i-2.)/float(len(dirs)-2)))
 
     for typ in ["bonds", "angs"]:
         typ1=typ[:-1]
@@ -59,10 +57,11 @@ def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None,
         for name in list(unparam[typ].keys())+param[typ]:
             fig,ax=plt.subplots(1,1,figsize=(3,3))
 
-            for i in range(len(dirs)):
-                data=aatop_2_cg.get_dist(dirs[i]+'bonded_distribution/' + typ1 + 
+            for i in range(len(labels)):
+                data=aatop_2_cg.get_dist(dirs[i+1]+'bonded_distribution/' + typ1 + 
                     '_' + name + '.xvg')
                 ax.plot(data[:,0], data[:,1], color=cols[i], label=labels[i])
+
             if typ=='bonds':
                 ax.set_xlabel('Bond length '+name+' (nm)')
                 ax.set_ylim(bottom=0)
@@ -70,6 +69,7 @@ def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None,
                     ax.set_ylim(top=bond_ymax)
                 if bond_small is not None and bond_large is not None:
                     ax.set_xlim(bond_small,bond_large)
+
             else: 
                 ax.set_xlabel('Bond angle '+name+' (deg)')
                 ax.set_xlim(0,180)
@@ -77,13 +77,17 @@ def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None,
                 ax.set_ylim(bottom=0)
                 if ang_ymax is not None:
                     ax.set_ylim(top=ang_ymax)
+
             if name in unparam[typ]:
                 ax.xaxis.label.set_color('red')
             ax.set_ylabel('Probability')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.tight_layout()
-            plt.legend(loc='upper right', fontsize='small')
+            if typ == "bonds": 
+                plt.legend(loc='upper right', fontsize='small', ncol=ncols_val[0])
+            if typ == "angs": 
+                plt.legend(loc='upper right', fontsize='small', ncol=ncols_val[1])
             plt.savefig('comparing_pngs/' + typ1 + '_' + name + '.png', dpi=300)
             print('Writing: ' + typ1 + '_' + name + '.png') 
             plt.clf()
@@ -91,11 +95,12 @@ def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None,
 
     for name in list(unparam['dihs'].keys()) + param['dihs']:
         fig,ax=plt.subplots(1, 1, figsize=(3,3))
-        for i in range(len(dirs)):
-            data=aatop_2_cg.get_dist(dirs[i]+'bonded_distribution/dih_' + name + '.xvg')
+        for i in range(len(labels)):
+            data=aatop_2_cg.get_dist(dirs[i+1]+'bonded_distribution/dih_' + name + '.xvg')
             ax.plot(data[:,0], data[:,1], color=cols[i], label=labels[i])
         ax.set_xlim(-180,180)
         ax.set_xticks(np.arange(-180,181,60))
+        ax.set_xticklabels(np.arange(-180,181,60),rotation=45)
         ax.set_ylim(bottom=0)
         if dih_ymax is not None:
             ax.set_ylim(top=dih_ymax)
@@ -106,7 +111,7 @@ def gen_png2(dirs, labels, bond_small=None, bond_large=None, bond_ymax=None,
         if name in unparam['dihs']:
             ax.xaxis.label.set_color('red')
         plt.tight_layout()
-        plt.legend(loc='upper right', fontsize='small')
+        plt.legend(loc='upper right', fontsize='small', ncol=ncols_val[2])
         plt.savefig('comparing_pngs/dih_' + name + '.png',dpi=300)
         print('Writing: dih_' + name + '.png') 
         plt.clf()
@@ -466,4 +471,106 @@ def calc_Diff(fname,tmax,tmul=0.001,tunit='ns',show=False):
     else:
         plt.savefig('msd_'+fname+'.png',dpi=1200)
 
+def calc_Diff_N(fname,tmax,T0,TN,N,tmul=0.001,tunit='ns',show=False):
+
+    datas=[]
+    As=[]
+    Bs=[]
+    from scipy import stats
+    for i in range(N):
+        t1=int(T0+i*int((TN-T0)/N))
+        t2=int(T0+(i+1)*int((TN-T0)/N))
+        data=aatop_2_cg.get_dist('msd_'+fname+'_'+str(int(t1/1000))+
+            '-'+str(int(t2/1000))+'ns.xvg')
+        data[:,0]=data[:,0]*tmul
+        dt=data[1,0]-data[0,0]
+        N1=int(tmax/dt+0.5)
+        data=data[:N1,:]
+        datas.append(data)
+        a,b,r,p,std_err=stats.linregress(data[:,0],data[:,1])
+        As.append(a)
+        Bs.append(b)
+    As=np.array(As)
+    a_avg=np.average(As)
+    a_std=np.std(As)
+
+    Bs=np.array(Bs)
+    b_avg=np.average(Bs)
+    b_std=np.std(Bs)
+
+    Davg=a_avg/6.
+    Derr=a_std/6.
+
+    datas=np.array(datas)
+    foo=datas.shape
+    data_comp=np.zeros((foo[1],3))
+    data_comp[:,0]=datas[0,:,0]
+    data_comp[:,1]=np.average(datas[:,:,1],axis=0)
+    data_comp[:,2]=np.std(datas[:,:,1],axis=0)
+
+    try:
+        props=nx.read_gpickle('prop.pickle')
+    except:
+        props={}
+
+    
+
+    props['D']=round(Davg,4)
+    props['D_err']=round(Derr/6.,4)
+    print("Diffusion coefficient : "+str(props['D'])+' +- '+
+        str(props['D_err'])+' 1E-5 cm2/s')
+
+    try:
+        props['D_scaled']=round(props['D']*props['scaling'],4)
+        props['D_scaled_err']=round(props['D_err']*props['scaling'],4)
+        print("Diffusion coefficient : "+str(props['D_scaled'])+' +- '+
+            str(props['D_scaled_err'])+' 1E-5 cm2/s')
+    except:
+        pass
+
+    nx.write_gpickle(props,'prop.pickle')
+    y_pred=data[:,0]*a_avg+b_avg
+    y_p1=y_pred - (data[:,0]*a_std+b_std)
+    y_p2=y_pred + (data[:,0]*a_std+b_std)
+
+    import matplotlib
+    matplotlib.use('TkAgg')
+    
+    fig,ax=plt.subplots(1,1,figsize=(4,4))
+    ax.plot(data_comp[:,0],data_comp[:,1],color='k')
+    ax.fill_between(data_comp[:,0],data_comp[:,1]-data_comp[:,2], 
+        y2=data_comp[:,1]+data_comp[:,2], alpha=0.5, facecolor='k', edgecolor=None)
+
+    ax.plot(data_comp[:,0],y_pred,color='r',linestyle='dashed')
+    ax.fill_between(data_comp[:,0],y_p1, y2=y_p2,  
+        alpha=0.5, facecolor='r', edgecolor=None)
+    
+    foo_dx=[0.01,0.02,0.04,0.05,0.1,0.2,0.4,0.5,1,2,4,5,10,20,40,50]
+    nticks_foo=np.array([abs(int(tmax/x+0.5)-5) for x in foo_dx])
+    idx=np.argmin(nticks_foo)
+    dx=foo_dx[idx]
+    xmax=(int(tmax/dx+0.5)+1)*dx
+
+    nticks_foo=np.array([abs(int(max(data[:,1])/x+0.5)-5) for x in foo_dx])
+    idx=np.argmin(nticks_foo)
+    dy=foo_dx[idx]
+    ymax=(int(max(data[:,1])/dy+0.5)+2)*dy
+    
+    
+    ax.set_ylabel(r'MSD (nm$^2$)')
+    ax.set_xlabel('Time ('+tunit+')')
+    ax.set_xticks(np.arange(0,xmax,dx))
+    ax.set_xlim(0,tmax)
+    ax.set_yticks(np.arange(0,ymax,dy))
+    ax.set_ylim(0,ymax-dy)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    lines=ax.get_lines()
+    plt.tight_layout()
+    ax.legend([lines[1]],['fit'], fontsize=10, bbox_to_anchor=(1.0,1.0), framealpha=1.0,
+               edgecolor='k')
+    if show:
+        plt.show()
+    else:
+        plt.savefig('msd_'+fname+'.png',dpi=1200)
          

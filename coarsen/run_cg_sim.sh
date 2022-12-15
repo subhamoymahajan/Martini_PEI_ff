@@ -289,9 +289,27 @@ gen_msd (){
         CG_T0=$1   #First argument specifies how many last nanoseconds ti use to calculated pei.xtc
 	CG_TN=$2
         MOL=$3
-        echo "$CG_T0 $CG_TN $MOL"
         source init.sh &>>output.log
         echo "$MOL" | gmx msd -f md_1.trr -s md_1.tpr -o msd_${MOL}.xvg -b $CG_T0 -e $CG_TN -mol -mw &>> output.log 
 
+}
+
+gen_msd_N (){
+        CG_T0=$1   #First argument specifies how many last nanoseconds ti use to calculated pei.xtc
+	CG_TN=$2
+        MOL=$3
+        N=$4
+        echo "$CG_T0 $CG_TN $MOL $N"
+        source init.sh &>>output.log
+        for (( i=1; i<=$N; i++))
+        do
+            CG_T1=$((CG_T0+(i-1)*(CG_TN-CG_T0)/N))
+            CG_T2=$((CG_T0+i*(CG_TN-CG_T0)/N))
+            a=$((CG_T1/1000))
+            b=$((CG_T2/1000))
+            echo "$MOL" | gmx msd -f md_1.trr -s md_1.tpr -o msd_${MOL}_${a}-${b}ns.xvg -b $CG_T1 -e $CG_T2 -mol -mw &>> output.log
+        done 
+
 } 
+ 
 "$@"

@@ -1,5 +1,16 @@
 # Martini\_PEI\_ff
 
+## References
+
+If you use newly generated forcefield parameters or the automated coarse-graining algorithm, please cite,
+
+[1] Subhamoy Mahajan and Tian Tang, Automated Parameterization of Coarse-Grained Polyethylenmine Under Martini Framework, ChemRxiv DOI:[10.26434/chemrxiv-2022-1fp1v](https://doi.org/10.26434/chemrxiv-2022-1fp1v)
+
+If you are using old forcefield parameters, please cite,
+
+[2] Subhamoy Mahajan and Tian Tang, Martini Coarse-Grained Model for Polyethylenimine, J. Comput. Chem. 2019, 40 (3), 607-618. 
+
+
 ## Quickstart
 ### 1. Generate CG reference trajectories
 
@@ -77,20 +88,34 @@ String should contain `t`, `sq`, `s`, `pq`, `p` representing tertiary, protonate
 
 Branches can be specified between `(` and `)` blocks.
 
-Additionally repeating blocks can be specified between `{` and `}`.
+Additionally repeating blocks can be specified between `[` and `]`.
 
-### 6. Calculate PEI properties
+### 6. Generate Reports
+
+To generate PNGs of all bonded distribution and a pdf containing all bonded distribution use,
 
 ```bash
-coarsen get_prop pei 
+coarsen gen_report -x parameters.dat
 ```
-Reports molecular properties of PEI. Also updates the properties in `prop.pickle`.
+The command reads bonded distributions (saved as .xvg) in `dir/bonded_distribution/`. All the directories `dir` should be specified 
+in the `dirs` parameter. 
+The legends can be specified using `labels` and number of legend columns using `ncols`. Other parameters read being used are: 
+`bond_small`, `bond_large`, `bond_ymax`, `ang_ymax`, `dih_ymax`.
+ 
+
+### 7. Calculate PEI properties
+
+All properties are automatically stored in `prop.pickle` in the local directory.
+
+```bash
+coarsen get_prop pei -f cg_struc.pickle 
+```
+Reports molecular properties of PEI. 
 
 ```bash
 coarsen get_prop polystat
 ```
 Reports average and standard deviation of end-to-end distance and radius of gyration.
-Also updates the properties in `prop.pickle`.
 
 ```bash
 coarsen get_prop edr [prop] -b T1 -e T2 -x parameters.dat
@@ -105,11 +130,12 @@ Calculates concentration of PEI in the simulation. Note that all PEIs should be 
 `-i nmol` is the number of PEI molecules.
 
 ```bash
-coarsen get_prop diff_scaling
+coarsen get_prop diff_scaling -x parameters.dat
 ```
 
 Determines the diffusion scaling factor. Currently works for Martini 2.1P and Martini Ref2.2P. Calculation of concenteration must have been previously calculated. 
 
+The parameter `martini ` = `2.2refP`, `2.1P`, or `2.2P` is required. The default parameter is `2.1P`.
 
 ```bash
 coarsen get_prop diff -b T1 -e T2 -k mol_name -n tfit
@@ -119,7 +145,18 @@ Calculates diffusion coefficient of PEI. Calculation of diffusion scaling factor
 
 - `-k mol_name`: Molecule name of PEI.
 - `-n tfit`: The fitting time in nanoseconds.
+- `-s show`: Shows the output rather than saving it as PNG.
 
+```bash
+coarsen get_prop diff_N -b T1 -e T2 -k PEI -n tfit -i partitions
+```
+
+Calculates diffusion coefficient of PEI by creating `partitions` partitions of the time `T1`-`T2`. This is used to calculate 
+the standard deviation of diffusion coefficient.
+
+- `-s show`: Shows the output rather than saving it as PNG.
+- `-k [name]`: Specify the name of the molecule in GROMACS index files.
+ 
 
 ## GROMACS type options
 
@@ -147,7 +184,11 @@ Calculates diffusion coefficient of PEI. Calculation of diffusion scaling factor
 - `bond_ymax` : Largest probability density value of bond length distribution for plotting.
 - `ang_ymax` : Largest probability density value of bond angle distribution for plotting.
 - `dih_ymax` : Largest probability density value of dihedral angle distribution for plotting.
-- `dih_initial` : 
+- `dih_initial` : text file containing dihedral angle name followed by the number of periodic potential to use. 
+   If the file is not specified default value of 8 is used for each dihedral angle. 
+- `dirs`: Name of directories to generate report of bonded distribution.
+- `labels`: Labels to use in legend of bonded distribution report.
+- `ncols`: Number of columns to use in legends for bond length, bond angless, and dihedral angles respectively. 
 - `gpu`: 1 if simulations are performed using GPU, 0 (default) if it is not.
 - `cost_tol`: Default is 1E-8.
 - `ions_mdp`: GROMACS .mdp file for adding ions
@@ -202,7 +243,17 @@ Calculates diffusion coefficient of PEI. Calculation of diffusion scaling factor
 - Edges are covalent bonds. The bonds start from N terminal of one bead to C terminal of another.
  
 ### prop.pickle
+- `MolWt`: Molecular weight of PEI in Da.
+- `Charge`: Charge of PEI.
+- `pr`: Protonation ratio.
+- `N_tsp`: Number of t, s, and p beads. sq and pq are treated as s and p respectively.
 - `Re`: end-to-end distance avg, std 
 - `Rg`: radius of gyration avg, std 
 - `Rg_eig`: index 0 is list of average eigen values, index 1 is list of std of eigen values.
-- `shape`: `asphericity`,`acylindricity`, relative shape anisotropy `shape_anisotropy`. 
+- `shape`: `asphericity`,`acylindricity`, relative shape anisotropy `shape_anisotropy`.
+- `Volume`: Volume of simulation box averaged over user-specified simulation time range (nm3), std.
+- `conc`: Concentration of PEI (g/L).
+- `D`: Diffusion coefficent (1E-5 cm2/s). 
+- `D_err`: Error in diffusion coefficent (1E-5 cm2/s). 
+- `D_scaled`: Scaled diffusion coefficent (1E-5 cm2/s).  
+- `D_scaled_err`: Error in scaled diffusion coefficent (1E-5 cm2/s). 

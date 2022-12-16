@@ -10,6 +10,52 @@ If you are using old forcefield parameters, please cite,
 
 [2] Subhamoy Mahajan and Tian Tang, Martini Coarse-Grained Model for Polyethylenimine, J. Comput. Chem. 2019, 40 (3), 607-618. 
 
+## Installation
+
+```bash
+python setup.py install
+```
+
+For copyright issues, the martini topology files are not provided with the python module. Please do the following in your local copy of coarsen. This needs to be done only once.
+
+1) Copy all .itp files from Maritni website and place them the coarsen folder.
+2) For itp files `martini_v2.2refP.itp`, `martini_v2.2P.itp`, etc. make a copy as `martini_v2.2refP_constr.itp`, `martini_v2.2P_constr.itp`, etc. These files will be used in energy minimization.
+3) For energy minimization .itp files you can connect the constraints portion of polarizable water models, and replace them with harmonic bonds. For example, in `martini_v2.2refP_constr.itp`
+
+convert the portion below,
+  
+```bash
+[constraints]
+;  i     j   funct   length
+   1     2    1       0.14
+   1     3    1       0.14
+
+; for minimization purposes constraints might be replaced by stiff bonds:
+;
+;[bonds]
+;  i     j   funct   length   force const.
+;   1     2    1       0.14    50000
+;   1     3    1       0.14    50000
+
+``` 
+
+to, 
+ 
+```bash
+;[constraints]
+;  i     j   funct   length
+;   1     2    1       0.14
+;   1     3    1       0.14
+
+; for minimization purposes constraints might be replaced by stiff bonds:
+;
+[bonds]
+;  i     j   funct   length   force const.
+   1     2    1       0.14    100000
+   1     3    1       0.14    100000
+```
+You can alter the force constant to reach a stable initial configuration.
+
 
 ## Quickstart
 ### 1. Generate CG reference trajectories

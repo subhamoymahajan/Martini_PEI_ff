@@ -4,11 +4,18 @@
 
 If you use newly generated forcefield parameters or the automated coarse-graining algorithm, please cite,
 
-[1] Subhamoy Mahajan and Tian Tang, Automated Parameterization of Coarse-Grained Polyethylenmine Under Martini Framework, ChemRxiv DOI:[10.26434/chemrxiv-2022-1fp1v](https://doi.org/10.26434/chemrxiv-2022-1fp1v)
+[1] Subhamoy Mahajan and Tian Tang, "Automated Parameterization of Coarse-Grained Polyethylenmine Under Martini Framework", *ChemRxiv* **2022** DOI:[10.26434/chemrxiv-2022-1fp1v](https://doi.org/10.26434/chemrxiv-2022-1fp1v)
 
 If you are using old forcefield parameters, please cite,
 
-[2] Subhamoy Mahajan and Tian Tang, Martini Coarse-Grained Model for Polyethylenimine, J. Comput. Chem. 2019, 40 (3), 607-618. 
+[2] Subhamoy Mahajan and Tian Tang, "Martini Coarse-Grained Model for Polyethylenimine", *J. Comput. Chem.* **2019**, 40 (3), 607-618. 
+
+All-atom simulation references.
+
+[3] Chongbo Sun, Tian Tang, and Hasan Uludag, Javier E. Cuervo, "Molecular Dynamics Simulations of DNA/PEI Complexes: Effect of PEI Branching and Protonation State", *Biophys. J.* **2011**,100(11), 2754-2763.  
+
+[4] Chongbo Sun, Tian Tang, and Hasan Uludaǧ, "Molecular Dynamics Simulations for Complexation of DNA with 2 KDa PEI Reveal Profound Effect of PEI Architecture on Complexation." *J. Phys. Chem. B* **2012**, 116 (8), 2405–2413.
+
 
 ## Installation
 

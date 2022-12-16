@@ -1,6 +1,6 @@
 # Tutorial 1: CG simulations using existing forcefield parameters
 
-## SMILE strings of PEIs in [2,3]
+### SMILE strings of PEIs in [2,3]
 **600 Da**
 
 PL23: `ssqssssssqsssspq`
@@ -19,13 +19,13 @@ MB46: `sqst(sqsspq)sqst(p)spq`
 
 HB46: `sqt(t(pq)spq)t(spq)t(pq)spq`
 
-## SMILE strings of PEI in [1,4]
+### SMILE strings of PEI in [1,4]
 
 **2 kDa**
 
 t(spq)sqt(sspq)t(pq)t(sqt(pq)spq)sqt(spq)t(sspq)t(pq)t(sqt(pq)spq)sqt(sqt(pq)spq)t(spq)pq
 
-## SMILE string of PEI in [1]
+### SMILE string of PEI in [1]
 
 **2 kDa - MilliporeSigma**
 
@@ -43,7 +43,7 @@ MB25k: [t([t(sspq)]2t(spq)pq) t(spq)t([t(sspq)]2t(spq)pq)t(sspq)]7pq
 
 HB25k: [t([[t(spq)]3t(sspq)]2sspq)t(spq)]7pq
 
-##Generating topology file
+## Generating topology file
 
 ```bash
 coarsen smile2cg `t(pq)ssqt(pq)ssqst(pq)spq` -x parameters.dat -o cg_ini.gro -p cg_topol.top

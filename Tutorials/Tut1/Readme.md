@@ -49,25 +49,27 @@ HB25k: [t([[t(spq)]3t(sspq)]2sspq)t(spq)]7pq
 coarsen smile2cg `t(pq)ssqt(pq)ssqst(pq)spq` -x parameters.dat -o cg_ini.gro -p cg_topol.top
 ```
 
-Creates topology file `cg_topol.top`. ITP file for PEI `tutPEI.itp` based on the `peiname` parameter in `parameters.dat`.
+- Creates topology file `cg_topol.top`. 
+- The ITP file name of PEI, `tutPEI.itp`, is based on the `peiname` parameter in `parameters.dat`.
 
-The parameter `init` stores a command that would be run to load Gromacs or any other necessary softwares in your local system. The tutorial uses commands necessary for compute canada systems. 
-The comands are stored in a local file `init.sh` that is run every time Gromacs commands are necesary.
+- The parameter `init` stores a command that is needed to load Gromacs or any other necessary softwares in your local system. The tutorial uses commands necessary for compute canada servers. 
+The commands are stored in a local file `init.sh` that is run every time Gromacs commands are necesary.
 If multiple commands are necessary to load Gromacs, use `init = cmd1 ; cmd2 ; cmd3`.
 
 
-Using `cgff_curr = cgff_2022` or `cgff_curr = cgff_2019` used the pickled files in the `coarsen` folder. To use custom forcefield paramters supply the path of pickled forcefield parameters 'cgff = path/myff.pickle' 
+- `cgff_curr = cgff_2022` or `cgff_curr = cgff_2019` uses the pickled CG forfield file in the `coarsen` folder. To use a custom forcefield parameters supply the path of a pickled file 'cgff = path/myff.pickle' 
 
-Martini version and water model can be defined using `martini = 2.2refP`, `martini = 2.2P` or `martini = 2.1`, etc.
+- Martini version and water model can be defined using `martini = 2.2refP`, `martini = 2.2P` or `martini = 2.1`, etc.
 
-Index files are generated for evaluting bonded CG distributions: `cg_bonds.ndx`, `cg_angs.ndx`, and `cg_dihs.ndx`.
+- Index files are generated for evaluting bonded CG distributions: `cg_bonds.ndx`, `cg_angs.ndx`, and `cg_dihs.ndx`.
 
-To determine end-to-end distance of the longest linear chain, `e2e.ndx` is generated.
+- Bonded distributions with known parameters are stored in `param.pickle` and unknown parameters are stored in `unparam.pickle`.
 
-ITP files from the `coarsen` folder are copied to local directory.
+- To determine end-to-end distance of the longest linear chain, `e2e.ndx` is generated.
 
-The directed graph of CG molecule is stored in `cg_struct.pickle`.
+- ITP files from the `coarsen` folder are copied to local directory.
 
-Bonded distributions with known parameters are stored in `param.pickle` and unknown parameters are stored in `unparam.pickle`.
+- The directed graph of the CG-PEI is stored in `cg_struct.pickle`.
 
-Now one can run desired simulations with .mdp files.
+
+Now, one can run desired simulations with .mdp files.

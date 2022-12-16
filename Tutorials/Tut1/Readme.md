@@ -46,7 +46,7 @@ HB25k: [t([[t(spq)]3t(sspq)]2sspq)t(spq)]7pq
 ## Generating topology file
 
 ```bash
-coarsen smile2cg `t(pq)ssqt(pq)ssqst(pq)spq` -x parameters.dat -o cg_ini.gro -p cg_topol.top
+coarsen smile2cg 't(pq)ssqt(pq)ssqst(pq)spq' -x parameters.dat -o cg_ini.gro -p cg_topol.top
 ```
 
 - Creates topology file `cg_topol.top`. 

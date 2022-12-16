@@ -220,7 +220,7 @@ def create_latex(cg_dir,aa_dir='',fig_per_row=3):
             w.write('\t\\begin{figure}[H]\n\t\t\\centering\n')
         w.write('\t\t\\begin{subfigure}{0.3\\textwidth}\n')
         if name in unparam['bonds']:
-            w.write('\t\t\t\\captionsetup{font={color=red,bf}')
+            w.write('\t\t\t\\captionsetup{font={color=red,bf}}\n')
         w.write('\t\t\t\\includegraphics[width=\\textwidth]{bond_' + name + \
             '.png}\n\t\t\\end{subfigure}\n')
 

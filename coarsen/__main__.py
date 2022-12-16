@@ -90,12 +90,12 @@ def main():
                 continue
             foo=lines.split('=')
             var=foo[0].strip()
-            if var in ["peiname", "trr", "init", "npt_mdp", "ions_mdp", 
+            if var in ["peiname", "init", "npt_mdp", "ions_mdp", "wat_file" 
                 "em_mdp", "md_mdp", "dih_initial", "cgff_curr", "martini"]:
                 params[var]=foo[1].strip()
             elif var in ["max_iter", "gpu", "start_iter"]:
                 params[var]=int(foo[1])
-            elif var in ["thc", "kc", "kdc", "fa", "fd", 'bond_small', 'wa',
+            elif var in ["rc", "thc", "Kac", "Kbc", "fb", "fa", "fd", 'bond_small', 'wa',
                 'bond_large', 'dih_ymax', 'ang_ymax', 'bond_ymax', 'wb',
                 'cost_tol']:
                 params[var]=float(foo[1])
@@ -107,12 +107,16 @@ def main():
     cgff=params['cgff']
     if params['cgff_curr'] in ['cgff_2019', 'cgff_2022']:
         cgff=params[params['cgff_curr']]
+    elif params['cgff_curr'] == 'None':
+        cgff=None
     else:
         cgff=params['cgff_curr']
-
-    if "xtc" not in params:
-        if "trr" in params:
-            params["xtc"]=params["trr"]
+    if 'P' in params['martini']:
+        if "wat_file" not in params:
+            params['wat_file']='polarize-water.gro'
+    else:
+        if "wat_file" not in params:
+            params['wat_file']='water.gro'
                 
     if "init" in params:
         f=open('init.sh','w')
@@ -122,21 +126,27 @@ def main():
             f.write(x+'\n')
         f.close()
     if remainder[0]=='aa2cg':
-        wget.download('http://cgmartini.nl/images/parameters/ITP/martini_v2.0_ions.itp',out='.')
-#        subprocess.run('cp ' + os.path.dirname(__file__) + '/martini_v2.0_ions.itp .', shell=True, check=True)
-        if params['martini']=='2.1P-dna':
-            wget.download('http://cgmartini.nl/images/parameters/dna/martini-dna-150909.tgz', out='.')
-            my_tar=tarfile.open('martini-dna-150909.tgz')
-            my_tar.extract('martini_v2.1P-dna.itp','./')
-            my_tar.close()    
+        #Get topology files.
+        if not os.path.isfile('martini_v2.0_ions.itp'):
+            wget.download('http://cgmartini.nl/images/parameters/ITP/martini_v2.0_ions.itp',out='.')
+        if not os.path.isfile('martini_v'+params['martini']+'.itp'): 
+            if params['martini']=='2.1P-dna':
+                wget.download('http://cgmartini.nl/images/parameters/dna/martini-dna-150909.tgz', out='.')
+                my_tar=tarfile.open('martini-dna-150909.tgz')
+                my_tar.extract('martini_v2.1P-dna.itp','./')
+                my_tar.close()    
+            else:
+                wget.download('http://cgmartini.nl/images/parameters/ITP/martini_v'+params['martini']+'.itp',out='.')
+        if 'P' in params['martini']:
+            if params['wat_file']=='polarize-water.gro' and not os.path.isfile('polarize-water.gro'): 
+                wget.download('http://cgmartini.nl/images/applications/water/polarize-water.gro')
         else:
-            wget.download('http://cgmartini.nl/images/parameters/ITP/martini_v'+params['martini']+'.itp',out='.')
+            if parmas["wat_file"]=='water.gro' and not os.path.isfile('water.gro'): 
+                wget.download('http://cgmartini.nl/images/applications/water/water.gro')
+        
         if params['martini'] in ['2.1P-dna', '2.P', '2.2P', '2.2refP', '2.3P']:
             subprocess.run('bash ' + os.path.dirname(__file__) + 
                 '/run_cg_sim.sh conv_itp ' + params['martini'], shell=True, check=True)
-        
-        #subprocess.run('cp ' + os.path.dirname(__file__) + '/martini_v2.2refP.itp .', shell=True, check=True)
-        #subprocess.run('cp ' + os.path.dirname(__file__) + '/martini_v2.2refP_constr.itp .', shell=True, check=True)
         #Read aatopol.top amd return all-atom structure as networkx Graph()
         aa_struct=aatop_2_cg.topol2graph(options.top) 
         # Returns aa_topol as networkx Graph()
@@ -158,7 +168,7 @@ def main():
                 str(options.end) + ' ' + os.getcwd(), shell=True, check=True)
 
             subprocess.run('rm -f bonded_distribution/#*', shell=True, 
-            check=True)
+                check=True)
 
             # Generate initial guess for unparameterized CG distributions
             subprocess.run('mkdir -p CG1', shell=True)
@@ -173,9 +183,10 @@ def main():
         if params['start_iter']==1:
             subprocess.run('bash ' + os.path.dirname(__file__) + '/run_cg_sim.sh ' +
                 'run_CG_sim CG1 .. ' + str(options.begin) + ' ' + str(options.end) + 
-                ' ' + os.path.dirname(__file__) + ' ' + str(params['gpu']) + ' ' +
+                ' ' + str(params['gpu']) + ' ' +
                 params['ions_mdp'] + ' ' +  params['em_mdp'] + ' ' + 
-                params['npt_mdp'] + ' ' + params['md_mdp'], shell=True, check=True)
+                params['npt_mdp'] + ' ' + params['md_mdp'] + ' ' + 
+                params['wat_file'], shell=True, check=True)
                 
             if not os.path.exists('CG1/comparing_pngs/all_images.pdf'):
                 report.gen_png(1, bond_small=params['bond_small'], 
@@ -197,7 +208,7 @@ def main():
             run=0
             if not os.path.exists('CG' + str(i-1) + '_th/cgff' + str(i-1) + \
                 '_th.pickle'): 
-                run=aatop_2_cg.update_th_params(params['thc'], i-1, '.', 
+                run=aatop_2_cg.update_th_params(params['rc'], params['thc'], i-1, '.', 
                     params['cost_tol'])
             if run==0 and not os.path.exists('CG' +str(i-1)+ '_th/cgtopol.top'):
                 aatop_2_cg.write_CGtopol(str(i-1) + '_th', 'cgtopol.top', 
@@ -207,14 +218,14 @@ def main():
                 subprocess.run('bash ' + os.path.dirname(__file__) +
                     '/run_cg_sim.sh run_CG_sim CG'+str(i-1)+'_th .. ' +
                     str(options.begin) + ' ' + str(options.end) + ' ' + 
-                    os.path.dirname(__file__) + ' ' + str(params['gpu']) + ' ' +
+                    str(params['gpu']) + ' ' +
                     params['ions_mdp'] + ' ' +  params['em_mdp'] + ' ' + 
-                    params['npt_mdp'] + ' ' + params['md_mdp'], shell=True,
-                    check=True)
+                    params['npt_mdp'] + ' ' + params['md_mdp'] + ' ' + 
+                    params['wat_file'], shell=True, check=True)
             # Run K step
             if not os.path.exists('CG' + str(i-1) + '_K/cgff' + str(i-1) + \
                 '_K.pickle'):
-                run=aatop_2_cg.update_K_params(params['kc'], i-1, '.',
+                run=aatop_2_cg.update_K_params(params['Kbc'], params['Kac'], i-1, '.',
                     params['cost_tol'])
                 #write topol, .itp
             if run==0 and not os.path.exists('CG' +str(i-1)+ '_K/cgtopol.top'):
@@ -225,15 +236,15 @@ def main():
                 subprocess.run('bash ' + os.path.dirname(__file__) + 
                     '/run_cg_sim.sh run_CG_sim CG'+str(i-1)+'_K .. ' +
                     str(options.begin) + ' ' + str(options.end)+ ' ' +
-                    os.path.dirname(__file__) + ' ' + str(params['gpu']) + ' ' +
+                    str(params['gpu']) + ' ' +
                     params['ions_mdp'] + ' ' +  params['em_mdp'] + ' ' + 
-                    params['npt_mdp'] + ' ' + params['md_mdp'], shell=True, 
-                    check=True)
+                    params['npt_mdp'] + ' ' + params['md_mdp'] + ' ' + 
+                    params['wat_file'], shell=True, check=True)
 
             # Run new step
             if not os.path.exists('CG' + str(i) + '/cgff' + str(i) + '.pickle'):
                 #update cgff
-                run=aatop_2_cg.update_bonded_params(params['fa'], params['fd'], 
+                run=aatop_2_cg.update_bonded_params(params['fb'], params['fa'], params['fd'], 
                         params['wb'], params['wa'], '.', i, params['cost_tol'])
             if run==-1:
                 print('Tolerance Reached: Parameterization Complete')
@@ -246,10 +257,10 @@ def main():
             subprocess.run('bash ' + os.path.dirname(__file__) + \
                 '/run_cg_sim.sh run_CG_sim CG'+str(i)+' .. ' + \
                 str(options.begin) + ' ' + str(options.end) + ' ' +
-                os.path.dirname(__file__) + ' ' + str(params['gpu']) + ' ' +
-                params['ions_mdp'] + ' ' +  params['em_mdp'] + ' ' + 
-                params['npt_mdp'] + ' ' + params['md_mdp'], shell=True, 
-                check=True)
+                str(params['gpu']) + ' ' + params['ions_mdp'] + ' ' + 
+                params['em_mdp'] + ' ' + params['npt_mdp'] + ' ' + 
+                params['md_mdp'] + ' ' + params['wat_file'], 
+                shell=True, check=True)
 
             if not os.path.exists('CG'+str(i)+'/comparing_pngs/all_images.pdf'):
                 os.system('mkdir -p CG'+str(i)+'/comparing_pngs')
@@ -307,7 +318,6 @@ def main():
         nx.write_gpickle(cg_struct,'cg_struct.pickle')
         aatop_2_cg.gen_unparam(cg_struct,cgff,dih_initial=params['dih_initial'])
         aatop_2_cg.write_e2e(cg_struct)
-        print('Here')
         smile.gen_ini_cord(cg_struct,cgff, params['pos_prec'], remainder[1], options.outname)
         aatop_2_cg.write_CGtopol(-1,options.top,cg_struct,cgff,params['peiname'])
 

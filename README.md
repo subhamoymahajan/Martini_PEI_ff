@@ -23,47 +23,6 @@ All-atom simulation references.
 python setup.py install
 ```
 
-For copyright issues, the martini topology files are not provided with the python module. Please do the following in your local copy of coarsen. This needs to be done only once.
-
-1) Copy all .itp files from Maritni website and place them the coarsen folder.
-2) For itp files `martini_v2.2refP.itp`, `martini_v2.2P.itp`, etc. make a copy as `martini_v2.2refP_constr.itp`, `martini_v2.2P_constr.itp`, etc. These files will be used in energy minimization.
-3) For energy minimization .itp files you can connect the constraints portion of polarizable water models, and replace them with harmonic bonds. For example, in `martini_v2.2refP_constr.itp`
-
-convert the portion below,
-  
-```bash
-[constraints]
-;  i     j   funct   length
-   1     2    1       0.14
-   1     3    1       0.14
-
-; for minimization purposes constraints might be replaced by stiff bonds:
-;
-;[bonds]
-;  i     j   funct   length   force const.
-;   1     2    1       0.14    50000
-;   1     3    1       0.14    50000
-
-``` 
-
-to, 
- 
-```bash
-;[constraints]
-;  i     j   funct   length
-;   1     2    1       0.14
-;   1     3    1       0.14
-
-; for minimization purposes constraints might be replaced by stiff bonds:
-;
-[bonds]
-;  i     j   funct   length   force const.
-   1     2    1       0.14    100000
-   1     3    1       0.14    100000
-```
-You can alter the force constant to reach a stable initial configuration.
-
-
 ## Quickstart
 ### 1. Generate CG reference trajectories
 
@@ -73,7 +32,7 @@ Convert AA trajectories to reference CG trajectories.
 coarsen aa2cg -f AA.trr -s AA.tpr -p AA.top -b T1 -e T2 -n aa2cg.ndx -o cgtopol.top -x parameters.dat 
 ``` 
 
-> **_Note1:__** T1 and T2 are time in ps (integer).
+> **_Note1:__** T1 and T2 are time in ps (integer). They represent the time range to extract reference-CG trajectories.
 >
 > **_Note2:__** `aa2cg.ndx` and `cgtopol.top` are output files.
 > 
@@ -97,9 +56,9 @@ Writes:
 ```bash
 coarsen parameterize -x parameters.dat -b T1 -e T2
 ```
-> **_Note1:__** T1 and T2 are CG time in ps (integer).
+> **_Note1:__** T1 and T2 are CG time in ps (integer). The T1-T2 is the time range for determining bonded distributions. The total simulation time is dictated by the mdp file.
 >
-> **_Note2:__** parameter `start_iter`, `max_iter`, `fa`, `wa`, `thc`, `kc`, `fd`, `peiname`, `init`, `bond_small`, `bond_large`, `bond_ymax`, `ang_ymax`, `dih_ymax`, `gpu` (default: 0), `em_mdp` (default: em.mdp), `ions_mdp` (default: ions.mdp), `npt_mdp` (default: npt.mdp), `md_mdp` (default: md.mdp ) are required in `parameters.dat`
+> **_Note2:__** parameter `start_iter`, `max_iter`, `fb`, `wb`, `rc`, `Kbc`, `fa`, `wa`, `thc`, `Kac`, `fd`, `peiname`, `init`, `bond_small`, `bond_large`, `bond_ymax`, `ang_ymax`, `dih_ymax`, `gpu` (default: 0), `em_mdp` (default: em.mdp), `ions_mdp` (default: ions.mdp), `npt_mdp` (default: npt.mdp), `md_mdp` (default: md.mdp ) are required in `parameters.dat`
 
 
 Reads:
@@ -135,13 +94,11 @@ coarsen add_cost -x parameters.dat -k string -f directory
 ### 5. SMILE to CG simulation files
 
 ```bash
-coarsen smile2cg SMILE_STRING 
+coarsen smile2cg SMILE_STRING -x parameters.dat -o cg.gro -p cg_topol.top 
 ``` 
-String should contain `t`, `sq`, `s`, `pq`, `p` representing tertiary, protonated-secondary, secondary. protonated-primary, and primary beads respectively. 
+String should contain `t`, `sq`, `s`, `pq`, `p` representing tertiary, protonated-secondary, secondary. protonated-primary, and primary beads respectively. Branches can be specified between `(` and `)` blocks. Additionally repeating blocks can be specified between `[` and `]`.
 
-Branches can be specified between `(` and `)` blocks.
-
-Additionally repeating blocks can be specified between `[` and `]`.
+`cg.gro` and `cg_topol.top` are outputs. See Tutorial Tut1 for more details.
 
 ### 6. Generate Reports
 
@@ -250,10 +207,12 @@ the standard deviation of diffusion coefficient.
 - `md_mdp`: GROMACS .mdp file for unconstrainted NPT simulation.
 - `fb` : Gradient descent step for bond length parameter optimization. Not used.
 - `wb` : Weight assigning relative importance to mean or standard deviation of bond length distributions. 1.0 implies standard deviation is not important, and 0.5 implies both mean and standard deviation are equally important. Typically, 0.75 is prefered.
+- `rc` : Change in equilibrium distance parameter for calculating Jacobian
+- `Kbc` : Change in bond force constant parameter for calculating Jacobian
 - `wa` : Weight assigning relative importance to mean or standard deviation of bond angle distributions.
 - `fa` : Gradient descent step for bond angle parameter optimization.
 - `thc` : Change in equilibrium theta parameter for calculating Jacobian
-- `kc` : Change in angle force constant parameter for calculating Jacobian
+- `Kac` : Change in angle force constant parameter for calculating Jacobian
 - `fd` : Gradient descent step for dihedral angle parameter optimisation. 
 - `pos_prec` : Default is 3, based on GROMACS .gro files. 
 - `start_iter` : Starting iteration number. Should be greater than 0.

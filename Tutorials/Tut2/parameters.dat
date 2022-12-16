@@ -1,0 +1,23 @@
+peiname = tutPEI
+init = module load StdEnv/2020 gcc/9.3.0 openmpi/4.0.3 gromacs/2020.4;
+
+cgff_curr = None
+martini = 2.2refP
+
+star_iter=2
+max_iter=3
+fb = 0.5
+fa = 0.75
+fd = 0.5
+Kbc = 200
+Kac = 100
+wa = 0.75
+wb = 0.75
+thc = 5
+rc = 0.02
+
+bond_small=0.25
+bond_large=0.75
+bond_ymax=55
+ang_ymax=0.2
+dih_ymax=0.05

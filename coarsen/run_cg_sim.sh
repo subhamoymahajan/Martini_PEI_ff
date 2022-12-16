@@ -19,7 +19,7 @@ gen_cg_dist (){
 
         if [ ! -f ${AA_dir}/polystat.xvg ] #AA polystat
         then
-	    gmx polystat -s md_1.tpr -f ${AA_dir}/mapped_cg.* -n ${AA_dir}/e2e.ndx -o ${AA_dir}/polystat.xvg -mw 
+	    gmx polystat -s md_1.tpr -f ${AA_dir}/mapped_cg.* -n ${AA_dir}/e2e.ndx -o ${AA_dir}/polystat.xvg -mw &>> output.log 
 	fi
 	
 	bonds=$(grep '\[' ${AA_dir}/cg_bonds.ndx | awk '{print $2}')
@@ -75,7 +75,7 @@ gen_aa_dist(){
 	N=`grep 'Bead' $AADIR/aa2cg.ndx | wc -l`
 	#Mapped CG trajectories
 	typ=${TRR: -3}
-	echo "Mapping AA trajectories to CG: "
+	echo -e "\nMapping AA trajectories to CG: "
 	if [ ! -f $AADIR/mapped_cg.$typ ]
 	then
 		if [ ${TRR:0:1} == '.' ]
@@ -109,7 +109,7 @@ gen_aa_dist(){
 	do
 	    if [ ! -f $AADIR/bonded_distribution/bond_${item}.xvg ]
 	    then
-	        echo "$i" | gmx distance -f $AADIR/mapped_cg.trr -n $AADIR/cg_bonds.ndx -len 0.35 -tol 0.8 -oh $AADIR/bonded_distribution/bond_${item}.xvg &>> output.log
+	        echo "$i" | gmx distance -f $AADIR/mapped_cg.${typ} -n $AADIR/cg_bonds.ndx -len 0.35 -tol 0.8 -oh $AADIR/bonded_distribution/bond_${item}.xvg &>> output.log
 	    fi
 	    i=$(( i + 1))
 	done
@@ -122,7 +122,7 @@ gen_aa_dist(){
 	do
 	    if [ ! -f $AADIR/bonded_distribution/angle_${item}.xvg ]
 	    then
-	        echo "$i" | gmx angle -f $AADIR/mapped_cg.trr -n $AADIR/cg_angs.ndx -od $AADIR/bonded_distribution/angle_${item}.xvg &>> output.log
+	        echo "$i" | gmx angle -f $AADIR/mapped_cg.${typ} -n $AADIR/cg_angs.ndx -od $AADIR/bonded_distribution/angle_${item}.xvg &>> output.log
 	    fi
 	    i=$(( i + 1))
 	done
@@ -135,7 +135,7 @@ gen_aa_dist(){
 	do
 	    if [ ! -f $AADIR/bonded_distribution/dih_${item}.xvg ]
 	    then
-	        echo "$i" | gmx angle -type dihedral -f $AADIR/mapped_cg.trr -n $AADIR/cg_dihs.ndx -od $AADIR/bonded_distribution/dih_${item}.xvg &>> output.log
+	        echo "$i" | gmx angle -type dihedral -f $AADIR/mapped_cg.${typ} -n $AADIR/cg_dihs.ndx -od $AADIR/bonded_distribution/dih_${item}.xvg &>> output.log
 	    fi
 	       i=$(( i + 1))
 	done
@@ -148,12 +148,12 @@ run_CG_sim () {
 	AADIR=$2 #AA relative to CGDIR or absolute path
 	CG_T0=$3
 	CG_TN=$4
-	DIR=$5
-	GPU=$6
-	ION=$7
-	EM=$8
-        NPT=$9
-	MD=${10}
+	GPU=$5
+	ION=$6
+	EM=$7
+        NPT=$8
+	MD=${9}
+        WAT=${10}
 
         echo " "
         source init.sh &>> output.log
@@ -181,7 +181,7 @@ run_CG_sim () {
         
 		#Add pokarizable water to the initial structure
 		echo "Adding polarizable water"
-		gmx solvate -cp cgPEI_newbox.gro -cs ${DIR}/polarize-water.gro -o cgPEI_solv.gro -p cgtopol.top -radius 0.12 >> log.dat 2>&1
+		gmx solvate -cp cgPEI_newbox.gro -cs ${AADIR}/${WAT} -o cgPEI_solv.gro -p cgtopol.top -radius 0.12 >> output.log 2>&1
                 n=`grep 'WP' cgPEI_solv.gro | wc -l`
 		if [ -f cgtopol.top ]
 		then
@@ -194,7 +194,7 @@ run_CG_sim () {
 		#Add neutralizing ions to the system
 		echo "Adding ions"
         	gmx grompp -f $AADIR/$ION -c cgPEI_solv.gro -p cgtopol.top -o ions.tpr -maxwarn 1 &>> output.log
-        	echo "3"| gmx genion -s ions.tpr -o cgPEI_solv_ions.gro -p cgtopol.top -pname K -nname CL -neutral  &>> output.log
+        	echo "3"| gmx genion -s ions.tpr -o cgPEI_solv_ions.gro -p cgtopol.top -pname K+ -nname CL- -neutral  &>> output.log
 		
                 sed 's/martini_v2\.2refP\.itp/martini_v2\.2refP_constr\.itp/g' cgtopol.top > cgtopol_constr.top	
         
@@ -212,11 +212,11 @@ run_CG_sim () {
 		        if [ $GPU != "1" ]
 	      	        then
      	      	            echo "runnning on CPU"
-              	            srun gmx_mpi mdrun -v -deffnm em  &>> output.log
 	                else 
 	      	            echo "running on CPU+GPU"
-	      	            gmx mdrun -ntomp 32 -deffnm em -v  &>> output.log
 			fi
+                        export OMP_NUM_THREADS=32
+	      	        gmx mdrun -v -deffnm em -ntomp 32  &>> output.log
 		    else 
 		        break
 	      	    fi
@@ -229,7 +229,13 @@ run_CG_sim () {
 		    if [ ! -f npt.gro ]
 		    then
         	          gmx grompp -f $AADIR/$NPT -c em.gro -p cgtopol.top -o npt.tpr &>> output.log
-		          gmx mdrun -ntomp 32 -deffnm npt -v  &>> output.log
+                          export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+		          srun gmx_mpi mdrun -deffnm npt -v  &>> output.log
+                          if [ $? -ne 0 ]
+                          then
+                               export OMP_NUM_THREADS=8
+		               gmx mdrun -deffnm npt -v -ntomp 8 &>> output.log
+                          fi
 		    else
 		        break
 		    fi
@@ -242,7 +248,13 @@ run_CG_sim () {
 		    if [ ! -f md_1.gro ]
 		    then
         	         gmx grompp -f $AADIR/$MD -c npt.gro -p cgtopol.top -o md_1.tpr  &>> output.log
-		         gmx mdrun -ntomp 32 -deffnm md_1 -v  &>> output.log
+                         export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
+                         srun gmx_mpi mdrun -v -deffnm md_1 &>> output.log
+                         if [ $? -ne 0 ]
+                         then
+                             export OMP_NUM_THREADS=8
+		             gmx mdrun -ntomp 8 -deffnm md_1 -v  &>> output.log
+                         fi
 		    else
 		        break
 		    fi

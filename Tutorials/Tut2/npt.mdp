@@ -1,0 +1,52 @@
+title		= OPLS Lysozyme NPT equilibration 
+;define		= -DPOSRES	; position restrain the protein
+; Run parameters
+integrator	= md		; leap-frog integrator
+nsteps		= 100000		; 200 ps
+dt		= 0.01	; 2 fs
+cutoff-scheme = verlet
+verlet-buffer-drift = 0.005
+; Output control
+nstxout		= 500		; save coordinates every 1.0 ps
+nstvout		= 500		; save velocities every 1.0 ps
+nstenergy	= 500		; save energies every 1.0 ps
+nstlog		= 500		; update log file every 1.0 ps
+; Bond parameters
+continuation	        = no		; Restarting after NVT 
+constraint_algorithm    = lincs	    ; holonomic constraints 
+constraints	            = none	; all bonds (even heavy atom-H bonds) constrained
+lincs_iter	            = 4 ;5		    ; accuracy of LINCS
+lincs_order	            = 8 ;6    ; also related to accuracy
+; Neighborsearching
+ns_type		    = grid		; search neighboring grid cells
+nstlist		    = 5	    ; 20 fs, largely irrelevant with Verlet scheme
+
+vdwtype       = cutoff
+vdw-modifier = potential-shift-verlet
+rvdw		    = 1.1		; short-range van der Waals cutoff (in nm)
+
+; Electrostatics
+coulombtype	    = reaction-field		; Particle Mesh Ewald for long-range electrostatics
+rcoulomb = 1.1
+epsilon_rf = 0
+epsilon_r = 2.5
+
+
+; Temperature coupling is on
+tcoupl		= V-rescale	            ; modified Berendsen thermostat
+tc-grps		= system	; two coupling groups - more accurate
+tau_t		= 0.1	 	        ; time constant, in ps
+ref_t		= 300 	 	        ; reference temperature, one for each group, in K
+; Pressure coupling is on
+pcoupl		        = Berendsen	    ; Pressure coupling on in NPT
+pcoupltype	        = isotropic	            ; uniform scaling of box vectors
+tau_p		        = 3.0		            ; time constant, in ps
+ref_p		        = 1.0		            ; reference pressure, in bar
+compressibility     = 3e-4	            ; isothermal compressibility of water, bar^-1
+refcoord_scaling    = com
+; Periodic boundary conditions
+pbc		= xyz		; 3-D PBC
+; Velocity generation
+gen_vel		= yes		; Velocity generation is off 
+gen_temp         = 300
+gen_seed = -1

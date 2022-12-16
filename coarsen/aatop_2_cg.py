@@ -602,7 +602,9 @@ def gen_unparam(CGStruc,cgff_cur_pickle,dih_initial=None):
     "cg_angs.ndx" : GROMACS .ndx file containing grouped CG angles.
     "cg_dihs.ndx" : GROMACS .ndx file containing grouped CG dihedrals.
     """
-    if type(cgff_cur_pickle)==str:
+    if cgff_cur_pickle is None:
+        cgff_cur={}
+    elif type(cgff_cur_pickle)==str:
         cgff_cur=nx.read_gpickle(cgff_cur_pickle)
     else:
         cgff_cur=cgff_cur_pickle
@@ -711,11 +713,14 @@ def gen_new_cgff(CGStruc,cgff_cur_pickle,cgff_out):
     [cgff_out]: a pickled dictionary containing bonded parameters.
     """
     #Write code to gen new ff.
-    if type(cgff_cur_pickle)==str:
+    if cgff_cur_pickle is None:
+        cgff_cur={}
+    elif type(cgff_cur_pickle)==str:
         cgff_cur=nx.read_gpickle(cgff_cur_pickle)
     else:
         cgff_cur=cgff_cur_pickle
 
+    cgff_new=gen_bond_params(cgff_cur,cgff_pickle_out=None)
     cgff_new=gen_ang_params(cgff_cur,cgff_pickle_out=None)
     cgff_new=gen_dih_params(cgff_new,cgff_pickle_out=None)
     nx.write_gpickle(cgff_new,cgff_out)
@@ -857,6 +862,29 @@ def fourier_series(x,*a):
         i+=1
     return foo
 
+def bond_fit(x,a0,a1,a2):
+    """ bond angle distribution used to fit data.
+    Angle potential is = k/2(r-r0)^2 
+                       = k/2(r^2  - 2*r*r0 + r0**2)
+    th0: equilibrium bond angle parameter
+    k: force constant for bond angle distribution
+
+    Parameters
+    ----------
+    x: array
+        bond angle
+    a0: float
+        0.5*k*r0**2 +C
+    a1: float
+        -k*r0
+    a2: float
+        k/2
+    Returns
+    -------
+        Returns anlge potential for given a0,a1,a2
+    """
+    return a0+a1*x+a2*np.square(x)
+
 def ang_fit(x,a0,a1,a2):
     """ bond angle distribution used to fit data.
     Angle potential is = k/2*(cos(th)-cos(th0))^2 
@@ -907,6 +935,26 @@ def conv_dih_par(a):
         params.append(foo)
     return [n-1,params]
 
+def conv_bond_par(a):
+    """ Convert bond potential fit parameters a0, a1, a2 to force constant k
+        and equilibrium bond length r0
+
+    k=a2*2
+    r0=-a1/k
+
+    Parameters
+    ----------
+    a: array
+        array containing a0, a1, a2
+    Returns
+    -------
+    Kb: Force constant
+    r0: Equilibrium angle 
+    """
+    Kb=round(a[2]*2,0) #K/2=a[2]
+    r0=round(-a[1]/Kb,3) #ro
+    return Kb, r0
+
 def conv_ang_par(a):
     """ Convert angle potential fit parameters a0, a1, a2 to force constant k
         and equilibrium angle th0
@@ -950,6 +998,25 @@ def ucg_dih_ref_dist(x,params):
     u=np.zeros(len(x))
     for i in range(params[0]):
         u=np.add(u,params[1][i][1]*(1+np.cos(np.pi*(params[1][i][2]*x-params[1][i][0])/180.0)))
+    return u
+
+def ucg_bond_ref_dist(x,ka,r0):
+    """ Generate CG angle potential energy distribution from parameters
+
+    Parameters
+    ----------
+    x: array of floats
+        bond angle 
+    ka: float
+        Force constant
+    r0: float
+        Equilibrium bond angle
+    Returns
+    -------
+        Bond angle potential energy distribution
+    """
+    u=np.zeros(len(x))
+    u=0.5*ka*np.square(x-r0)
     return u
 
 def ucg_ang_ref_dist(x,ka,th0):
@@ -1049,6 +1116,56 @@ def gen_dih_params(cgff_pickle,cgff_pickle_out=None):
     elif type(cgff_pickle_out)==str:
         nx.write_gpickle(cgff,cgff_pickle_out)
 
+def gen_bond_params(cgff_pickle,cgff_pickle_out=None):
+    """ Generate initial guess for bond angle parameters
+
+    Parameters
+    ----------
+    unparam_pickle: dictionary
+        Dictionary containing unparameterized bonded distribution names.
+    cgff_pickle: dictionary/string
+        Initial forcefield pickle. Can be a dictionary or a string. The string 
+        is the name of the pickled file that stores the dictionary.
+    cgff_pickle_out: dictionary/string (Optional)
+        Returns dictionary or if the value is a string writes a pickled file. 
+        (Default None)
+    Returns
+    -------
+    cgff: dictionary
+        if cgff_pickle_out is None (default).
+    """
+    unparam=nx.read_gpickle('unparam.pickle')
+
+    if type(cgff_pickle)==str:
+        cgff=nx.read_gpickle(cgff_pickle)
+    else:
+        cgff=cgff_pickle
+
+    for name in unparam['bonds']:
+        data_aa=get_dist('bonded_distribution/bond_'+name+'.xvg') #Read AA angle distributions
+        for i in range(len(data_aa)):
+            if data_aa[i,1]>0:
+                break
+        for j in range(len(data_aa)-1,-1,-1):
+            if data_aa[j,1]>0:
+                break
+        data_aa=data_aa[max(0,i-10):min(len(data_aa),j+11),:]
+                
+        Uaa=-kbt*np.log(data_aa[:,1]+tol) #Get the potential energy of angle distribution from Boltzmann inversion
+        p0=[225,750,2500]
+        popt,pcov=curve_fit(bond_fit,data_aa[:,0],Uaa,p0)  #Generate angle parameters from curve fitting
+        Kb,r0=conv_bond_par(popt) #Generate angle parameters for force field
+        cgff[name]=[r0,Kb]
+        #Plot the fit to a png file
+        Ucg=ucg_bond_ref_dist(data_aa[:,0],Kb,r0)
+        dx=0.5*(data_aa[2,0]-data_aa[0,0])
+        Ucg=np.array(Ucg)
+        Pcg=np.exp(-Ucg/kbt)
+        Pcg=Pcg/(np.sum(Pcg)*dx)
+
+    
+        plt.figure
+        plt.plot(data_aa[:,0],data_aa[:,1],'k')
 def gen_ang_params(cgff_pickle,cgff_pickle_out=None):
     """ Generate initial guess for bond angle parameters
 
@@ -1196,7 +1313,7 @@ def dih_param_to_fourier(Kd,phi):
                 popt[i+1]=-Kd[i]
     return popt
 
-def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
+def update_bonded_params(fb, fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
     """ Update bonded parameters for next iteration
 
     Since all bond length parameters have been determined, they are not 
@@ -1264,15 +1381,15 @@ def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
             mean['CG'+x]=mean_pdf(data['CG'+x])
             std['CG'+x]=std_pdf(data['CG'+x])
                 
-        dr=ff['CG_r'][bond][0]-ff['CG'][bond][0]
+        dr=ff['CG_th'][bond][0]-ff['CG'][bond][0]
         dK=ff['CG_K'][bond][1]-ff['CG'][bond][1]
 
         if dr<0.001:
             dmudr=0
             dsigdr=0
         else:
-            dmudr=(mean['CG_r']-mean['CG'])/dr
-            dsigdr=(std['CG_r']-std['CG'])/dr
+            dmudr=(mean['CG_th']-mean['CG'])/dr
+            dsigdr=(std['CG_th']-std['CG'])/dr
 
         if dK<0.1:
             dmudK=0
@@ -1284,11 +1401,11 @@ def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
         d_param=[0,0]
         cnt=0
         if dr>0:
-            d_param[0]-= unparam['bonds'][bond]*fa*2*(wb*(mean['CG'] - 
+            d_param[0]-= unparam['bonds'][bond]*fb*2*(wb*(mean['CG'] - 
                 mean['AA'])*dmudr + (1-wb)*(std['CG'] - std['AA'])*dsigdr)
             cnt+=1
         if dK>0:
-            d_param[1]-= unparam['bonds'][bond]*fa*2*(wb*(mean['CG'] - 
+            d_param[1]-= unparam['bonds'][bond]*fb*2*(wb*(mean['CG'] - 
                 mean['AA'])*dmudK + (1-wb)*(std['CG'] - std['AA'])*dsigdK)*100.0
             cnt+=1
 
@@ -1399,7 +1516,7 @@ def update_bonded_params(fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
     else:
         return -1
 
-def update_th_params(thc,idx,aa_dir,cost_tol=1E-6):
+def update_th_params(rc,thc,idx,aa_dir,cost_tol=1E-6):
     """ Update only theta parameters of bond angle distribution for determining 
         Jacobian
 
@@ -1426,6 +1543,13 @@ def update_th_params(thc,idx,aa_dir,cost_tol=1E-6):
     cgff=nx.read_gpickle(aa_dir+'/CG'+str(idx)+'/cgff'+str(idx)+'.pickle')
     err_stat=nx.read_gpickle(aa_dir + '/Cost.pickle')
     changed=False
+    for bond in unparam['bonds']:
+        if err_stat[idx][bond]<cost_tol:
+            continue
+        else:
+            cgff[bond][0]=cgff[bond][0]+rc
+        changed=True
+
     for ang in unparam['angs']:
         if err_stat[idx][ang]<cost_tol:
             continue
@@ -1441,7 +1565,7 @@ def update_th_params(thc,idx,aa_dir,cost_tol=1E-6):
     else:
         return -1
 
-def update_K_params(kc,idx,aa_dir,cost_tol=1E-6):
+def update_K_params(Kbc,Kac,idx,aa_dir,cost_tol=1E-6):
     """ Update only force constant parameters of bond angle distribution for 
         determining Jacobian
 
@@ -1472,8 +1596,15 @@ def update_K_params(kc,idx,aa_dir,cost_tol=1E-6):
     for ang in unparam['angs']:
         if err_stat[idx][ang]<cost_tol:
             continue
-        cgff[ang][1]=max(kc+cgff[ang][1],10)
+        cgff[ang][1]=max(Kac+cgff[ang][1],10)
         changed=True
+
+    for bond in unparam['bonds']:
+        if err_stat[idx][bond]<cost_tol:
+            continue
+        cgff[bond][1]=Kbc+cgff[bond][1]
+        changed=True
+
     if changed:
         nx.write_gpickle(cgff,aa_dir+'/CG'+str(idx)+'_K/cgff'+str(idx)+'_K.pickle')
         return 0

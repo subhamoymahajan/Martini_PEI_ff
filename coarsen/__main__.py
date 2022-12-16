@@ -62,7 +62,8 @@ def main():
     options, remainder = parser.parse_args()
     params={}
     params['cgff_2019']=os.path.dirname(__file__)+'/cgff_2019.pickle'
-    params['cgff_curr']=os.path.dirname(__file__)+'/cgff_2019.pickle'
+    params['cgff_2022']=os.path.dirname(__file__)+'/cgff_2022.pickle'
+    params['cgff']=os.path.dirname(__file__)+'/cgff_2022.pickle'
     params['dih_initial']=None
     params['bond_small']=0.3
     params['bond_large']=0.6
@@ -103,6 +104,12 @@ def main():
             elif var in ["ncols"]:
                 params[var]=[int(x) for x in foo[1].split()]
 
+    cgff=params['cgff']
+    if params['cgff_curr'] in ['cgff_2019', 'cgff_2022']:
+        cgff=params[params['cgff_curr']]
+    else:
+        cgff=params['cgff_curr']
+
     if "xtc" not in params:
         if "trr" in params:
             params["xtc"]=params["trr"]
@@ -141,8 +148,7 @@ def main():
 
         # Writes: unparam.pickle, param.pickle, dictionaries containing 
         # unparameterized and parameterized bonded distributions.
-        aatop_2_cg.gen_unparam(cg_struct,params['cgff_curr'],
-            dih_initial=params['dih_initial'])
+        aatop_2_cg.gen_unparam(cg_struct, cgff, dih_initial=params['dih_initial'])
         aatop_2_cg.write_e2e(cg_struct)
         # Generates AA bonded distriutions
         if not os.path.exists('CG1/'+options.outname):
@@ -158,7 +164,7 @@ def main():
             subprocess.run('mkdir -p CG1', shell=True)
             subprocess.run('mkdir -p ref_param_fit', shell=True)
 
-            aatop_2_cg.gen_new_cgff(cg_struct,params['cgff_curr'],'CG1/cgff1.pickle')
+            aatop_2_cg.gen_new_cgff(cg_struct, cgff, 'CG1/cgff1.pickle')
             aatop_2_cg.write_CGtopol(1,options.outname,cg_struct, None, params['peiname'])
 
     if remainder[0]=='parameterize':
@@ -299,11 +305,11 @@ def main():
 
         cg_struct=smile.smile2top(remainder[1])
         nx.write_gpickle(cg_struct,'cg_struct.pickle')
-        aatop_2_cg.gen_unparam(cg_struct,params['cgff_curr'],
-            dih_initial=params['dih_initial'])
+        aatop_2_cg.gen_unparam(cg_struct,cgff,dih_initial=params['dih_initial'])
         aatop_2_cg.write_e2e(cg_struct)
-        smile.gen_ini_cord(cg_struct,params['cgff_curr'], params['pos_prec'], remainder[1], options.outname)
-        aatop_2_cg.write_CGtopol(-1,options.top,cg_struct,params['cgff_curr'],params['peiname'])
+        print('Here')
+        smile.gen_ini_cord(cg_struct,cgff, params['pos_prec'], remainder[1], options.outname)
+        aatop_2_cg.write_CGtopol(-1,options.top,cg_struct,cgff,params['peiname'])
 
     if remainder[0]=='get_prop':
         try:

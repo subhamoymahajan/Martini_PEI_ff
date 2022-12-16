@@ -1,0 +1,4 @@
+peiname = tutPEI
+init = module load StdEnv/2016.4 cuda/8.0.44 gromacs/5.1.4;
+cgff_curr = cgff_2022
+martini = 2.2refP

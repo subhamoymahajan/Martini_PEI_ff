@@ -27,7 +27,7 @@ setuptools.setup(
    license='GPLv3',
    install_requires=['networkx','numpy','scipy','matplotlib'],
    packages=['coarsen'],
-   package_data={'': ['LICENSE.txt'],'coarsen': ['run_cg_sim.sh']},
+   package_data={'': ['LICENSE.txt'],'coarsen': ['run_cg_sim.sh','cgff_2019.pickle','cgff_2022.pickle']},
    classifiers=[
         "Development Status :: 5-Production/Stable",
         "Intended Audience :: Science/Research",

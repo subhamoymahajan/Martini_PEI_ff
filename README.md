@@ -1,5 +1,7 @@
 # Martini\_PEI\_ff
 
+Currently stable. Please try the tutorials and report any bugs that you may find.
+
 ## References
 
 If you use newly generated forcefield parameters or the automated coarse-graining algorithm, please cite,
@@ -188,7 +190,8 @@ the standard deviation of diffusion coefficient.
 ## Parameters for paramfile
 
 - `init` : Text separated by ';' (end-of-line) for loading modules associated with Gromacs.
-- `cgff_curr` : Path to current CG forcefield parameters as pickled file. Default value is the 2019 forcefield.  
+- `cgff_curr` : Path to current CG forcefield parameters as pickled file. Default value is the 2022 forcefield. 
+- `wat_file` : Filename containing equilibrium water configurations. If no value is specified equilibrated polarizable or non-polarizable configurations would be downloaded from Martini website. 
 - `bond_small` : Smallest bond length for plotting. Default is 0.3 nm.
 - `bond_large` : Largest bond length for plotting. Default is 0.6 nm.
 - `bond_ymax` : Largest probability density value of bond length distribution for plotting.

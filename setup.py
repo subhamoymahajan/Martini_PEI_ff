@@ -19,7 +19,7 @@ import setuptools
 
 setuptools.setup(
    name="Martini_PEI_ff",
-   version="1.0.0 beta",
+   version="1.0.1",
    author="Subhamoy Mahajan",
    author_email="subhamoy@ualberta.ca",
    description="Toolbox for generating and creating CG-PEI topology",

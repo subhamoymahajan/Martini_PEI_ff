@@ -4,7 +4,6 @@ import numpy as np
 import networkx as nx
 from . import aatop_2_cg
 from scipy.optimize import curve_fit
-kbt=aatop_2_cg.kbt
 tol=aatop_2_cg.tol
 
 def gen_mol_prop(cgstruc_pickle,props):
@@ -261,7 +260,8 @@ def create_latex(cg_dir,aa_dir='',fig_per_row=3):
     w.write('\\end{document}')
     w.close()
 
-def add_cost(wb,wa,aa_dir,cg_dir,idx):
+def add_cost(wb,wa,aa_dir,cg_dir,idx,Temp=300):
+    kbt=2.479*Temp/298.0 #kJ/mol  
     aa_dir_b=aa_dir+'/bonded_distribution/'
     cg_dir_b=cg_dir+'/bonded_distribution/'
     unparam=nx.read_gpickle(aa_dir+'/unparam.pickle')

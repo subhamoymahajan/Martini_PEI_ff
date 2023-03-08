@@ -221,6 +221,8 @@ the standard deviation of diffusion coefficient.
 - `start_iter` : Starting iteration number. Should be greater than 0.
 - `max_iter` : Last iteration number. Should be greater than 1.
 - `peiname` : Name of PEI.
+- `Temp`: Temperature of the simulation. Used to generate initial parameters and update them.
+
 
 ## Pickle formats
 

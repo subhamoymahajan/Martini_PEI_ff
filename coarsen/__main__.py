@@ -97,7 +97,7 @@ def main():
                 params[var]=int(foo[1])
             elif var in ["rc", "thc", "Kac", "Kbc", "fb", "fa", "fd", 'bond_small', 'wa',
                 'bond_large', 'dih_ymax', 'ang_ymax', 'bond_ymax', 'wb',
-                'cost_tol']:
+                'cost_tol','Temp']:
                 params[var]=float(foo[1])
             elif var in ["dirs", "labels"]:
                 params[var]=foo[1].split()
@@ -174,7 +174,7 @@ def main():
             subprocess.run('mkdir -p CG1', shell=True)
             subprocess.run('mkdir -p ref_param_fit', shell=True)
 
-            aatop_2_cg.gen_new_cgff(cg_struct, cgff, 'CG1/cgff1.pickle')
+            aatop_2_cg.gen_new_cgff(cg_struct, cgff, 'CG1/cgff1.pickle',Temp=params['Temp'])
             aatop_2_cg.write_CGtopol(1,options.outname,cg_struct, None, params['peiname'])
 
     if remainder[0]=='parameterize':
@@ -198,7 +198,7 @@ def main():
                 subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
                 check=True)
                 os.chdir('../../')
-            report.add_cost(params['wb'],params['wa'],'.','CG1',1)
+            report.add_cost(params['wb'],params['wa'],'.','CG1',1,Temp=params['Temp'])
 
         for i in range(max(2,params['start_iter']),params['max_iter']+1):
             subprocess.run('mkdir -p CG'+str(i), shell=True)
@@ -245,7 +245,7 @@ def main():
             if not os.path.exists('CG' + str(i) + '/cgff' + str(i) + '.pickle'):
                 #update cgff
                 run=aatop_2_cg.update_bonded_params(params['fb'], params['fa'], params['fd'], 
-                        params['wb'], params['wa'], '.', i, params['cost_tol'])
+                        params['wb'], params['wa'], '.', i, params['cost_tol'], Temp=params['Temp'])
             if run==-1:
                 print('Tolerance Reached: Parameterization Complete')
                 return
@@ -273,7 +273,7 @@ def main():
                 subprocess.run('pdflatex all_images.tex &>> output.log',shell=True, 
                 check=True)
                 os.chdir('../../')
-            report.add_cost(params['wa'],params['wb'],'.','CG'+str(i),i)
+            report.add_cost(params['wa'],params['wb'],'.','CG'+str(i),i,Temp=params['Temp'])
 
     if remainder[0]=='gen_cg_dist':
         if not os.path.exists('e2e.ndx'):
@@ -306,7 +306,7 @@ def main():
             val=int(options.key)
         except:
             val=options.key
-        report.add_cost(params['wb'], params['wa'], '.', options.file, val)
+        report.add_cost(params['wb'], params['wa'], '.', options.file, val, Temp=params['Temp'])
         #Example: coarsen add_cost -x parameters.dat -k 10 (or string) -f [dir]
              
     if remainder[0]=='smile2cg':

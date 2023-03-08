@@ -23,7 +23,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-kbt=2.479*300/298.0 # Thermal energy at 300 K. 
 tol=1E-6 # A very small number
 
 def find_bonds(CGStruc):
@@ -694,7 +693,7 @@ def gen_unparam(CGStruc,cgff_cur_pickle,dih_initial=None):
         w.write('\n')
     w.close()
 
-def gen_new_cgff(CGStruc,cgff_cur_pickle,cgff_out):
+def gen_new_cgff(CGStruc,cgff_cur_pickle,cgff_out,Temp=300):
     """ Generates initial guess for missing bonded parameters.
     It is only used for the first iteration.
     
@@ -720,9 +719,9 @@ def gen_new_cgff(CGStruc,cgff_cur_pickle,cgff_out):
     else:
         cgff_cur=cgff_cur_pickle
 
-    cgff_new=gen_bond_params(cgff_cur,cgff_pickle_out=None)
-    cgff_new=gen_ang_params(cgff_cur,cgff_pickle_out=None)
-    cgff_new=gen_dih_params(cgff_new,cgff_pickle_out=None)
+    cgff_new=gen_bond_params(cgff_cur,cgff_pickle_out=None,Temp=Temp)
+    cgff_new=gen_ang_params(cgff_cur,cgff_pickle_out=None,Temp=Temp)
+    cgff_new=gen_dih_params(cgff_new,cgff_pickle_out=None,Temp=Temp)
     nx.write_gpickle(cgff_new,cgff_out)
 
 #To generate initial dihedral parameters from reference AA distributions.
@@ -1066,7 +1065,7 @@ def fill_data(data,typ='dih'):
         foo[:,1]=np.array(y)
         return foo
 
-def gen_dih_params(cgff_pickle,cgff_pickle_out=None):
+def gen_dih_params(cgff_pickle,cgff_pickle_out=None,Temp=300):
     """ Generate initial guess for dihedral angle parameters
 
     Parameters
@@ -1085,6 +1084,7 @@ def gen_dih_params(cgff_pickle,cgff_pickle_out=None):
         if cgff_pickle_out is None (default).
     """
     unparam=nx.read_gpickle('unparam.pickle')
+    kbt=2.479*Temp/298.0 #kJ/mol  
 
     if type(cgff_pickle)==str:
         cgff=nx.read_gpickle(cgff_pickle)
@@ -1116,7 +1116,7 @@ def gen_dih_params(cgff_pickle,cgff_pickle_out=None):
     elif type(cgff_pickle_out)==str:
         nx.write_gpickle(cgff,cgff_pickle_out)
 
-def gen_bond_params(cgff_pickle,cgff_pickle_out=None):
+def gen_bond_params(cgff_pickle,cgff_pickle_out=None,Temp=300):
     """ Generate initial guess for bond angle parameters
 
     Parameters
@@ -1134,6 +1134,7 @@ def gen_bond_params(cgff_pickle,cgff_pickle_out=None):
     cgff: dictionary
         if cgff_pickle_out is None (default).
     """
+    kbt=2.479*Temp/298.0 #kJ/mol  
     unparam=nx.read_gpickle('unparam.pickle')
 
     if type(cgff_pickle)==str:
@@ -1166,7 +1167,8 @@ def gen_bond_params(cgff_pickle,cgff_pickle_out=None):
     
         plt.figure
         plt.plot(data_aa[:,0],data_aa[:,1],'k')
-def gen_ang_params(cgff_pickle,cgff_pickle_out=None):
+
+def gen_ang_params(cgff_pickle,cgff_pickle_out=None,Temp=300):
     """ Generate initial guess for bond angle parameters
 
     Parameters
@@ -1184,6 +1186,7 @@ def gen_ang_params(cgff_pickle,cgff_pickle_out=None):
     cgff: dictionary
         if cgff_pickle_out is None (default).
     """
+    kbt=2.479*Temp/298.0 #kJ/mol  
     unparam=nx.read_gpickle('unparam.pickle')
 
     if type(cgff_pickle)==str:
@@ -1313,7 +1316,7 @@ def dih_param_to_fourier(Kd,phi):
                 popt[i+1]=-Kd[i]
     return popt
 
-def update_bonded_params(fb, fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
+def update_bonded_params(fb, fa, fd, wb, wa, aa_dir, idx, Temp=300, cost_tol=1E-8):
     """ Update bonded parameters for next iteration
 
     Since all bond length parameters have been determined, they are not 
@@ -1346,6 +1349,7 @@ def update_bonded_params(fb, fa, fd, wb, wa, aa_dir, idx, cost_tol=1E-8):
         0 if some parameters have changed
        -1 if no parameters have changed.
     """
+    kbt=2.479*Temp/298.0 # kJ/mol 
     unparam=nx.read_gpickle(aa_dir + '/unparam.pickle')
     err_stat=nx.read_gpickle(aa_dir + '/Cost.pickle')
     ff={}

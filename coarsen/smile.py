@@ -90,8 +90,11 @@ def smile2top(smile):
     print('--------------------------------')
     print('Molecular Weight : '+str(Mtot))
     print('Charge : '+str(Qtot))
-    print('Pri : Sec: Ter = ' + str(round(Ntsp[2]/Ntsp[0],2)) +
-        ': ' + str(round(Ntsp[1]/Ntsp[0],2)) + ': 1')
+    max_=max(Ntsp)
+    ratio_=[x/max_ for x in Ntsp ]
+    print('Pri : Sec: Ter = ' + str(round(ratio_[2],2)) +
+        ': ' + str(round(ratio_[1],2)) + ': ' + 
+        str(round(ratio_[0],2)))
     print('Protonation ratio: '+str(int(0.5+100*Qtot/np.sum(Ntsp[:])))+'%')
     print(' \n\n')
     return CGStruc
